@@ -81,7 +81,8 @@ def v_gas(T, uits=MD):
     T:      temperature of uniform cloud or shell (K)
     units:  ** dictionary of units  - default = MD
     """
-    return np.sqrt( (units['gamma'] * units['k'] * units['T']) / units['mu'] )
+    assert float(T) > 0.0, "temperature must be > 0"
+    return np.sqrt( (units['gamma'] * units['k'] * T) / units['mu'] )
 
 def area_shell(r,dr, units=MD):
     """ outer surface area of shell
@@ -106,27 +107,89 @@ def volume_shell(r,dr, units=MD):
 
 def internal_mass(r):
     """ mass of cloud inside radius 'r'"""
-    return
+    return NotImplemented
 
-def pressure_gas(m,r,T):
-    """ gas pressure as function of shell: mass, radius, temperature"""
-    return
+def pressure_gas(m,r,,dr,T, units=MD):
+    """ gas pressure of uniform cloud/shell
 
-def pressure_rad(T):
-    """ radiation pressure as function of shell temperature"""
-    return
+    Parameters
+    ----------
+    m:      shell mass
+    r:      shell inner radius
+    dr:     shell width
+    T:      shell temperature (K)
+    units:  ** dictionary of units - default = MD
+    """
+    V   =   volume_shell(r,dr, units=units)
+    assert float(V) > 0, "Volume must be greater than 0"
+    return ( m * units['k'] * T ) / ( units['mu'] * V )
 
-def pressure_grav(r):
-    """ gravity pressure as function of shell radius"""
-    return
+def pressure_rad(T, units=MD):
+    """ radiation pressure of uniform cloud/shell
 
-def potential_grav(r):
-    """ gravitational potential energy as function of shell radius"""
-    return
+    Parameters
+    ----------
+    T:      shell temperature (K)
+    units:  ** dictionary of units - default = MD
+    """
+    return (1/3) * units['a'] * T**4
 
-def mean_free_path(n):
-    """ mean free path as function of particle density"""
-    return
+def pressure_grav(m,r,dr, units=MD):
+    """ gravity pressure of uniform cloud/shell
+
+    Parameters
+    ----------
+    m:      shell mass
+    r:      shell radius
+    dr:     shell width
+    units:  ** dictionary of units - default = MD
+    """
+    A   =   area_shell(r,dr, units=units)
+    M   =   internal_mass(r)
+    assert float(r+dr) > 0.0, "shell radius must be > 0"
+    assert float(A) > 0.0, "outer surface area of shell must be > 0"
+    return - ( units['G'] * M * m ) / ( (r+dr)**2 * A)
+
+def potential_grav(m,r, units=MD):
+    """ gravitational potential energy of shell
+
+    Parameters
+    ----------
+    m:      shell mass
+    r:      shell inner radius
+    units:  ** dictionary of units - default = MD
+    """
+    assert float(r) > 0.0, "shell radius must be > 0"
+    M   =   internal_mass(r)
+    return - ( units['G'] * M * m ) / r
+
+def particle_density(m,r,dr, units=MD):
+    """particle density in uniform cloud/shell
+
+    Parameters
+    ----------
+    m:      shel mass
+    r:      shell inner radius
+    dr:     shell width
+    units:  ** dictionary of units - default = MD
+    """
+    V   =   volume_shell(r,dr, units=units)
+    assert float(V) > 0.0, "shell volume must be > 0"
+    return m / ( units['mu'] * V )
+
+def mean_free_path(m,r,dr, units=MD):
+    """ mean free path in uniform cloud/shell
+
+    Parameters
+    ----------
+    m:      shell mass
+    r:      shell innder radius
+    dr:     shell width
+    units:  ** dictionary of values - default = MD
+    """
+    n   =   particle_density(m,r,dr, units=units)
+    assert float(n) > 0.0, "particle density must be > 0"
+    return 1/ ( np.sqrt(2) * np.pi * units['d']**2 * n)
 
 #===============================================================================
 # Main Problem
