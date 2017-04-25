@@ -27,7 +27,7 @@ T_model     =   T_bench*100
 M_clouds    =   M_clouds[::-1]
 T_bench     =   T_bench[::-1]
 
-def cloud_collapse(i, N_time=1000,N_shells=1000,tol=1e-5):
+def cloud_collapse(i, N_time=1000,N_shells=1000,tol=1e-5,saveA=True):
     """ function that models collapsing cloud
 
     position arguments
@@ -80,6 +80,9 @@ def cloud_collapse(i, N_time=1000,N_shells=1000,tol=1e-5):
     d['mfp']        =   np.zeros_like(d['r'])           # shell mean free path
     d['temp']       =   np.zeros_like(d['r'])           # shell temperature
     d['acc']        =   np.zeros_like(d['r'])           # shell acceleration (total)
+    # d['acc_grav']   =   np.zeros_like(d['r'])           # shell acceleration from gravity alone
+    # d['acc_rad']    =   np.zeros_like(d['r'])           # shell acceleration from radiation pressure alone
+    # d['acc_gas']    =   np.zeros_like(d['r'])           # shell acceleration from gas pressure alone
     d['vel']        =   np.zeros_like(d['r'])           # shell velocities
 
     d['mass']       =   np.zeros(N_shells)              # shell mass, constant
@@ -98,15 +101,13 @@ def cloud_collapse(i, N_time=1000,N_shells=1000,tol=1e-5):
     data['mfp'][0,:]        =   np.array([ aux.shell_mean_free_path(data,0,j) for j in range(N_shells) ])
     data['temp'][0,:]       =   np.ones(N_shells) * const['T']
     data['acc'][0,:]        =   np.array([ aux.acc_total(data,0,j) for j in range(N_shells) ])
-    # pdb.set_trace()
+    # data['acc_grav'][0,:]   =   np.array([ aux.acc_gravity(data,0,j) for j in range(N_shells) ])
+    # data['acc_rad'][0,:]    =   np.array([ aux.acc_pressure_rad(data,0,j) for j in range(N_shells) ])
+    # data['acc_gas'][0,:]    =   np.array([ aux.acc_pressure_gas(data,0,j) for j in range(N_shells) ])
 
     """fill in arrays"""
-    for i_time,time in enumerate(TIME[1:]):
+    data    =   aux.integrate(data,N_time,N_shells,dt)
 
-
-    # """save cloud data frame"""
-    # if saveA:
-    #     pd.to_pickle('../data/cloud_%s' % str(M_clouds[i]) )
-    # else:
-    #     return cloud
+    """save cloud data frame"""
+    if saveA: data.to_pickle('../data/cloud_%s' % str(M_clouds[i]) )
     return data

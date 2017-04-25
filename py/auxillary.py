@@ -200,13 +200,28 @@ def velocity_verlet(data,t,j,acc_func,dt, units=MD):
     data['r'][t+1,j]    =   data['r'][t,j] + dt*v_half
     acc2                =   acc_func(data,t+1,j,units=units)
     data['vel'][t+1,j]  =   v_half + (dt/2)*acc2
-    data['acc2'][t+1,j] =   acc2
+    data['acc'][t+1,j]  =   acc2
     return data
 
-def integrate(data,N_time,N_shells,dt):
+# rk4 not needed ?
+# def rk4(data,t,j,acc_func,dt, units=MD):
+#     k1  =   acc_func(data,t,j, units=units)
+#     k2  =   acc_func(data,t+(1/2)*dt,j, units=units)
+#     k3  =   acc_func(data,)
+#     # """Runge-Kutta RK4"""
+#     # k1 = f(t, y)
+#     # k2 = f(t + 0.5*h, y + 0.5*h*k1)
+#     # k3 = f(t + 0.5*h, y + 0.5*h*k2)
+#     # k4 = f(t + h, y + h*k3)
+#     # return y + h/6 * (k1 + 2*k2 + 2*k3 + k4)
 
-    for t in range(N_time):
+def integrate(data,N_time,N_shells,dt, units=MD):
+
+    for t in range(N_time-1):
+        print('%s percent' % (t*100/(N_time-1)) )
         for j in range(N_shells):
 
             data    =   velocity_verlet(data,t,j,acc_total,dt, units=units)
             # fill in other 2D data (besides 'r', 'vel', and 'acc')
+
+    return data
