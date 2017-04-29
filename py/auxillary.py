@@ -91,6 +91,9 @@ def unit_conversion():
 in model units: pc, Myr, solar mass"""
 MD          =   unit_conversion()
 
+def gas_pressure(m,T,V, units=MD):
+    return m * units['k'] * T / units['mu'] / V
+
 #===============================================================================
 """ Initializing Functions """
 #-------------------------------------------------------------------------------
@@ -131,64 +134,148 @@ def shell_volume(data,t,j, units=MD):
     # shell outer radius
     r_f     =   data['r'][t,j]
 
-    return (4/3) * np.pi * (r_f**3 - r_i**3)
+    # shell volume
+    V_tj                =   (4/3) * np.pi * (r_f**3 - r_i**3)
+    data['volume'][t,j] =   V_tj
+    return data
 
 def shell_inner_area(data,t,j, units=MD):
     if j == 0:
-        return 0
+        A       =   0
     else:
         # inner radius
         r_i     =   data['r'][t,j-1]
-        return 4 * np.pi * r_i**2
+        A       = 4 * np.pi * r_i**2
+
+    data['area'][t,j]   =   A
+    return data
 
 def shell_particle_density(data,t,j, units=MD):
-    return data['mass'][j] / units['mu'] / data['volume'][t,j]
+    n               =   data['mass'][j] / units['mu'] / data['volume'][t,j]
+    data['n'][t,j]  =   n
+    return data
 
 def shell_mean_free_path(data,t,j, units=MD):
-    return 1 / (np.sqrt(2) * np.pi * units['d']**2 * data['n'][t,j])
+    mfp                 =   1 / (np.sqrt(2) * np.pi * units['d']**2 * data['n'][t,j])
+    data['mfp'][t,j]    =   mfp
+    return data
 
 def shell_potential_energy(data,t,j, units=MD):
     # internal mass
-    return
+    M_r     =   data['mass_r'][j]
+    # shell mass
+    m_j     =   data['mass'][j]
+    # shell position
+    pos     =   data['r'][t,j]
+
+    U_g                 =   units['G'] * M_r * m_j / pos
+    data['U_g'][t,j]    =   U_g
+    return data
+
+def shell_gas_pressure(data,t,j, units=MD):
+    # shell mass
+    m_j     =   data['mass'][j]
+    # shell temperature
+    T_tj    =   data['temp'][t,j]
+    # shel volume
+    V_tj    =   data['volume'][t,j]
+
+    p_gas               =   gas_pressure(m_j,T_tj,V_tj, units=units)
+    data['p_gas'][t,j]  =   p_gas
+    return data
+
+def shell_pvt_const(data,j, t=0,units=MD):
+    """ since the shell has constant mass
+    can use pV/T = const"""
+    # shell temperature
+    T_tj    =   data['temp'][t,j]
+    # shel volume
+    V_tj    =   data['volume'][t,j]
+    # shell pressure
+    P_tj    =   data['p_gas'][t,j]
+
+    pvt_const               =   P_tj * V_tj / T_tj
+    data['pvt_const'][j]    =   pvt_const
+    return data
+
+def shell_vt_const(data,j, t=0,units=MD):
+    # shell temp
+    T_tj    =   data['temp'][t,j]
+    # shell volume
+    V_tj    =   data['volume'][t,j]
+
+    vt_const            =   T_tj * V_tj**(const['gamma']-1)
+    data['vt_const'][j] =   vt_const
+    return data
+
+def shell_temperature(data,t,j, units=MD):
+    const               =   data['vt_const'][j]
+    V_tj                =   data['volume'][t,j]
+    gamma               =   const['gamma']
+    data['temp'][t,j]   =   const / V_tj**(gamma-1)
+    return data
+
+def shell_luminosity_flux(data,t,j, units=MD):
+    T_tj            =   data['temp'][t,j]
+    r_tj            =   data['r'][t,j]
+    L_tj            =   4 * np.pi * r_tj**2 * units['sigma'] * T_tj**4
+    F_tj            =   units['sigma'] * T_tj**4
+
+    data['L'][t,j]  =   L_tj
+    data['F'][t,j]  =   F_tj
+    return data
+
+
 
 #===============================================================================
 """ Acceleration Functions """
 #-------------------------------------------------------------------------------
 
 def acc_pressure_gas(data,t,j, units=MD):
-    # gas pressure from inner shell
-    p   =   data['mass'][j-1] * units['k'] * data['temp'][t,j-1] / units['mu'] / shell_volume(data,t,j-1,units=units)
+    """gas pressure on shell from interior shell"""
+    # mass of inner shell
+    m_i     =   data['mass'][j-1]
+    # temperature of inner shell
+    T_ti    =   data['temp'][t,j-1]
+    # volume of inner shell
+    V_ti    =   data['volume'][t,j-1]
+    # gas pressure exerted on shell
+    P       =   gas_pressure(m_i,T_ti,V_ti)
 
-    return data['area'][t,j] * p / data['mass'][j]
+    # surface area of shell
+    A_tj    =   data['area'][t,j]
+    # mass of shell
+    m_j     =   data['mass'][j]
+
+    acc_gas                 =   A_tj * P / m_j
+    data['acc_gas'][t,j]    =   acc_gas
+    return data
 
 def acc_pressure_rad(data,t,j, units=MD):
     # radiation pressure from inner shell
     p   =   (1/3) * units['a'] * data['temp'][t,j-1]
 
-    return data['area'][t,j] * p / data['mass'][j]
+    acc_rad             =   data['area'][t,j] * p / data['mass'][j]
+    data['acc_rad']     =   acc_rad
+    return data
 
 def acc_gravity(data,t,j,units=MD):
     # radius of shell
-    r_j     =   data['r'][t,j]
-    M_r     =   np.sum(data['mass'][:j])
-    return - units['G'] * M_r * data['mass'][j] / r_j**2
-    # sum of m_i/(r_j-r_i)^2
-    # alpha   =   0
-    # for i in range(j):
-    #     # mass of interior shell
-    #     m       =   data['mass'][i]
-    #     # radius of interior shell
-    #     r_i     =   data['r'][t,i]
-    #     r       =   r_j - r_i
-    #     alpha   +=  m/r**2
-    # return - units['G'] * alpha
+    r_tj    =   data['r'][t,j]
+    M_r     =   data['mass_r'][j]
+
+    acc_grav                =   - units['G'] * M_r / r_tj**2
+    data['acc_grav'][t,j]   =   acc_grav
+    return data
 
 def acc_total(data,t,j, units=MD):
-    # a_gas   =   acc_pressure_gas(data,t,j, units=MD)
-    # a_rad   =   acc_pressure_rad(data,t,j, units=MD)
-    a_grav  =   acc_gravity(data,t,j, units=MD)
-    # return a_gas + a_rad + a_grav
-    return a_grav
+    a_gas   =   data['acc_gas'][t,j]
+    # a_rad   =   Data['acc_rad'][t,j]
+    a_grav  =   data['acc_grav'][t,j]
+
+    acc                 =   a_grav + a_gas
+    data['acc'][t,j]    =   acc
+    return data
 
 #===============================================================================
 """ Integration Functions """
@@ -203,25 +290,27 @@ def velocity_verlet(data,t,j,acc_func,dt, units=MD):
     data['acc'][t+1,j]  =   acc2
     return data
 
-# rk4 not needed ?
-# def rk4(data,t,j,acc_func,dt, units=MD):
-#     k1  =   acc_func(data,t,j, units=units)
-#     k2  =   acc_func(data,t+(1/2)*dt,j, units=units)
-#     k3  =   acc_func(data,)
-#     # """Runge-Kutta RK4"""
-#     # k1 = f(t, y)
-#     # k2 = f(t + 0.5*h, y + 0.5*h*k1)
-#     # k3 = f(t + 0.5*h, y + 0.5*h*k2)
-#     # k4 = f(t + h, y + h*k3)
-#     # return y + h/6 * (k1 + 2*k2 + 2*k3 + k4)
+def Euler(data,t,j,acc_func,dt, units=MD):
+    acc                 =   acc_func(data,t,j, units=MD)
+    vel                 =   data['vel'][t,j] + acc
+    pos                 =   data['r'][t,j] + vel
+    data['acc'][t+1,j]  =   acc
+    data['vel'][t+1,j]  =   vel
+    data['r'][t+1,j]    =   pos
+    return data
 
-def integrate(data,N_time,N_shells,dt, units=MD):
+def integrate(data,N_time,N_shells,dt, units=MD,integrator=Euler):
+
+    def print_percent(i):
+        p_i =   np.linspace(0,N_time,11).astype(int)
+        if np.any(i == p_i): print("%s percent" % int( 100 * i / (N_time-1) ))
 
     for t in range(N_time-1):
-        print('%s percent' % (t*100/(N_time-1)) )
+        print_percent(t)
+
         for j in range(N_shells):
 
-            data    =   velocity_verlet(data,t,j,acc_total,dt, units=units)
+            data    =   integrator(data,t,j,acc_total,dt, units=units)
             # fill in other 2D data (besides 'r', 'vel', and 'acc')
 
     return data

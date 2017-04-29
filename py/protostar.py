@@ -78,36 +78,72 @@ def cloud_collapse(i, N_time=1000,N_shells=1000,tol=1e-5,saveA=True):
     d['area']       =   np.zeros_like(d['r'])           # shell inner area
     d['n']          =   np.zeros_like(d['r'])           # shell particle density
     d['mfp']        =   np.zeros_like(d['r'])           # shell mean free path
-    d['temp']       =   np.zeros_like(d['r'])           # shell temperature
+
+    d['U_g']        =   np.zeros_like(d['r'])           # shell potential energy
+    d['p_gas']      =   np.zeros_like(d['r'])           # shell gas pressure
+
     d['acc']        =   np.zeros_like(d['r'])           # shell acceleration (total)
-    # d['acc_grav']   =   np.zeros_like(d['r'])           # shell acceleration from gravity alone
+    d['acc_grav']   =   np.zeros_like(d['r'])           # shell acceleration from gravity alone
     # d['acc_rad']    =   np.zeros_like(d['r'])           # shell acceleration from radiation pressure alone
-    # d['acc_gas']    =   np.zeros_like(d['r'])           # shell acceleration from gas pressure alone
+    d['acc_gas']    =   np.zeros_like(d['r'])           # shell acceleration from gas pressure alone
     d['vel']        =   np.zeros_like(d['r'])           # shell velocities
+
+    # d['pvt_const']  =   np.zeros_like(d['mass'])        # shell pv/T constant
+    d['temp']       =   np.zeros_like(d['r'])           # shell temperature
+    d['L']          =   np.zeros_like(d['r'])           # shell Luminosity
+    d['F']          =   np.zeros_like(d['r'])           # shell flux density
 
     d['mass']       =   np.zeros(N_shells)              # shell mass, constant
     d['mass_r']     =   np.zeros_like(d['mass'])        # shell internal mass, constant
+    d['vt_const']   =   np.zeros_like(d['mass'])        # shell TV^gamma-1 constant
 
     """ turns data dictionary to panda.Series """
     data            =   pd.Series(d)
 
     """initialize data"""
     data['r'][0,:]          =   R[1:]
-    data['volume'][0,:]     =   np.array([ aux.shell_volume(data,0,j) for j in range(N_shells) ])
-    data['area'][0,:]       =   np.array([ aux.shell_inner_area(data,0,j) for j in range(N_shells) ])
-    data['mass'][:]         =   density_0 * data['volume'][0]
-    data['mass_r'][:]       =   np.array([ np.sum(data['mass'][:j]) for j in range(N_shells) ])
-    data['n'][0,:]          =   np.array([ aux.shell_particle_density(data,0,j) for j in range(N_shells) ])
-    data['mfp'][0,:]        =   np.array([ aux.shell_mean_free_path(data,0,j) for j in range(N_shells) ])
     data['temp'][0,:]       =   np.ones(N_shells) * const['T']
-    data['acc'][0,:]        =   np.array([ aux.acc_total(data,0,j) for j in range(N_shells) ])
+    data['dt']              =   dt
+
+    for j in range(N_shells):
+        data['mass'][:]         =   density_0 * data['volume'][0]
+        data['mass_r'][:]       =   np.array([ np.sum(data['mass'][:j]) for j in range(N_shells) ])
+
+        data    =   aux.shell_volume(data,0,j)
+        data    =   aux.shell_inner_area(data,0,j)
+        data    =   aux.shell_particle_density(data,0,j)
+        data    =   aux.shell_mean_free_path(data,0,j)
+        data    =   aux.shell_potential_energy(data,0,j)
+        data    =   aux.shell_gas_pressure(data,0,j)
+        # data    =   aux.shell_pvt_const(data,0,j)
+        data    =   aux.shell_vt_const(data,j)
+        data    =   aux.shell_luminosity_flux(data,0,j)
+
+        data    =   aux.acc_gravity(data,0,j)
+        data    =   aux.acc_gravity(data,0,j)
+        data    =   aux.acc_total(data,0,j)
+
+    # data['U_g'][0,:]        =   np.array([ aux.shell_potential_energy(data,0,j) for j in range(N_shells) ])
+    # data['volume'][0,:]     =   np.array([ aux.shell_volume(data,0,j) for j in range(N_shells) ])
+    # data['area'][0,:]       =   np.array([ aux.shell_inner_area(data,0,j) for j in range(N_shells) ])
+    #
+    # data['mass'][:]         =   density_0 * data['volume'][0]
+    # data['mass_r'][:]       =   np.array([ np.sum(data['mass'][:j]) for j in range(N_shells) ])
+    #
+    # data['n'][0,:]          =   np.array([ aux.shell_particle_density(data,0,j) for j in range(N_shells) ])
+    # data['mfp'][0,:]        =   np.array([ aux.shell_mean_free_path(data,0,j) for j in range(N_shells) ])
+    #
+    # data['p_gas']           =   np.array([ aux.gas_pressure(data,0,j) for j in range(N_shells) ])
+    # data['pvt_const'][:]    =   np.array([ aux.shell_pvt_const(data,j) for j in range(N_shells) ])
+
+    # data['acc'][0,:]        =   np.array([ aux.acc_total(data,0,j) for j in range(N_shells) ])
     # data['acc_grav'][0,:]   =   np.array([ aux.acc_gravity(data,0,j) for j in range(N_shells) ])
     # data['acc_rad'][0,:]    =   np.array([ aux.acc_pressure_rad(data,0,j) for j in range(N_shells) ])
     # data['acc_gas'][0,:]    =   np.array([ aux.acc_pressure_gas(data,0,j) for j in range(N_shells) ])
 
     """fill in arrays"""
-    data    =   aux.integrate(data,N_time,N_shells,dt)
+    # data    =   aux.integrate(data,N_time,N_shells,dt)
 
     """save cloud data frame"""
-    if saveA: data.to_pickle('../data/cloud_%s' % str(M_clouds[i]) )
+    # if saveA: data.to_pickle('../data/cloud_%s' % str(M_clouds[i]) )
     return data
