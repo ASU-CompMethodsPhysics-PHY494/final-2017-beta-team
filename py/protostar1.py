@@ -18,33 +18,23 @@ import pdb
 C           =   units.C
 
 #===============================================================================
-""" Auxillary Functions """
+""" Main Problem """
 #-------------------------------------------------------------------------------
 
-def gas_pressure(m,T,V, units=MD):
-    return m * units['k'] * T / units['mu'] / V
+# mass of model clouds:             solar mass
+M_clouds    =   np.array([.7,   .8,     1,      1.5,    2,      3,      5,      9,      15,     25,     60])
+# collapse time of model clouds:    Myr
+T_bench     =   np.array([100,  68.4,   38.9,   35.4,   23.4,   7.24,   1.15,   .288,   .117,   .0708,  .0282])
+# radii of model stars:             solar radius
+R_sun       =   np.array([.8,   .93,    1,      1.2,    1.8,    2.2,    2.9,    4.1,    5.2,    10,     13.4])
+# radii of model stars:             pc
+R_star      =   R_sun * C['r_sun']
 
-#===============================================================================
-""" Initializing Functions """
-#-------------------------------------------------------------------------------
+M_clouds    =   M_clouds[::-1]
+T_bench     =   T_bench[::-1]
+R_star      =   R_star[::-1]
 
-def Jeans_radius(M, units=MD):
-    """ Jean's radius
+def cloud_collapse(i, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
 
-    Parameters
-    ----------
-    M:      initial cloud mass in desired units
-    units:  ** dictionary of units  - default = MD
-    """
-    return (1/5) * (units['G'] * units['mu'] * M) / (units['k'] * const['T'])
-
-def v_sound(T, units=MD):
-    """ sound speed in gas
-
-    Parameters
-    ----------
-    T:      temperature of uniform cloud or shell (K)
-    units:  ** dictionary of units  - default = MD
-    """
-    assert float(T) > 0.0, "temperature must be > 0"
-    return np.sqrt( (const['gamma'] * units['R'] * T) / (units['mol_He']) )
+    data                =   aux.integrate(M_clouds[i],R_star[i],N_time,N_shell,tol)
+    return data

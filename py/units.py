@@ -28,6 +28,7 @@ SI['k']     =   1.3806503e-23       # Bolztmann's constant          (J/K)
 SI['sigma'] =   5.670373e-8         # Stefan Bolztmann's constant   W/(m^2 K^4)
 SI['a']     =   7.5657e-16          # radiation constant            J/(m^3 K^4)
 SI['R']     =   8.314472            # gas constant                  J/(mol K)
+SI['r_sun'] =   6.95508e8           # solar radius                  m
 
 """ 3/4 hydrogen 1/4 helium cloud """
 SI['mu']    =   (3/4)*SI['m_H'] + (1/4)*SI['m_He']      # average particle mass     (kg)
@@ -40,6 +41,7 @@ SI['d']     =   (3/4)*SI['d_H'] + (1/4)*SI['d_He']      # average particle size 
 
 const['gamma']  =   5/3     # heat capacity ratio for monatomic ideal gas
 const['T']      =   10      # initial cloud temperature (K)
+const['T_c']    =   10**7   # critical temperature for H -> He fusion
 
 #===============================================================================
 """ Conversion factors """
@@ -79,6 +81,7 @@ def unit_conversion():
     MD['mu']    =   SI['mu'] * unit_mass
     MD['mol_mu']=   SI['mol_mu'] * unit_mass
     MD['d']     =   SI['d'] * unit_length
+    MD['r_sun'] =   SI['r_sun'] * unit_length
     return MD
 """ dictionary of constants and parameters
 in model units: pc, Myr, solar mass"""
