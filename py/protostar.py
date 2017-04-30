@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cm
 import auxillary as aux
+import units as units
 import pdb
 
 #===============================================================================
@@ -22,7 +23,6 @@ const   =   { **aux.const, **aux.MD }
 
 M_clouds    =   np.array([.7,   .8,     1,      1.5,    2,      3,      5,      9,      15,     25,     60])
 T_bench     =   np.array([100,  68.4,   38.9,   35.4,   23.4,   7.24,   1.15,   .288,   .117,   .0708,  .0282])
-T_model     =   T_bench*100
 
 M_clouds    =   M_clouds[::-1]
 T_bench     =   T_bench[::-1]
@@ -42,7 +42,7 @@ def cloud_collapse(i, N_time=1000,N_shells=1000,tol=1e-5,saveA=True):
     """
 
     """ construct time array: Myr """
-    t_max       =   T_model[i]
+    t_max       =   T_bench[i]
     dt          =   t_max/N_time
     TIME        =   np.arange(0,t_max+dt,dt)
 
@@ -57,11 +57,11 @@ def cloud_collapse(i, N_time=1000,N_shells=1000,tol=1e-5,saveA=True):
     inner shells' outer radii. """
     v_gas       =   aux.v_sound(const['T'])
     dr_gas      =   v_gas*dt
-    assert dr < dr_gas, "shell widths must be less than (sound speed in gas) x (time increment)"
+    # assert dr < dr_gas, "shell widths must be less than (sound speed in gas) x (time increment)"
     R           =   np.arange(0,r_max+dr,dr)
 
     """ initla cloud volume and density """
-    Volume_0    =   (4/3) * np.pi * r_max
+    Volume_0    =   (4/3) * np.pi * r_max**3
     density_0   =   M_clouds[i]/Volume_0
 
     """ number of shells is length of radius array and
@@ -102,14 +102,18 @@ def cloud_collapse(i, N_time=1000,N_shells=1000,tol=1e-5,saveA=True):
 
     """initialize data"""
     data['r'][0,:]          =   R[1:]
+    data['r'][:,0]          =   data['r'][0,0]
     data['temp'][0,:]       =   np.ones(N_shells) * const['T']
     data['dt']              =   dt
+    data['Volume_0']        =   Volume_0
+    data['dr_jean']         =   dr
+    data['dr_gas']          =   dr_gas
 
     for j in range(N_shells):
-        data['mass'][:]         =   density_0 * data['volume'][0]
-        data['mass_r'][:]       =   np.array([ np.sum(data['mass'][:j]) for j in range(N_shells) ])
 
         data    =   aux.shell_volume(data,0,j)
+        data['mass'][:]         =   density_0 * data['volume'][0]
+        data['mass_r'][:]       =   np.array([ np.sum(data['mass'][:j]) for j in range(N_shells) ])
         data    =   aux.shell_inner_area(data,0,j)
         data    =   aux.shell_particle_density(data,0,j)
         data    =   aux.shell_mean_free_path(data,0,j)
@@ -120,30 +124,12 @@ def cloud_collapse(i, N_time=1000,N_shells=1000,tol=1e-5,saveA=True):
         data    =   aux.shell_luminosity_flux(data,0,j)
 
         data    =   aux.acc_gravity(data,0,j)
-        data    =   aux.acc_gravity(data,0,j)
+        data    =   aux.acc_pressure_gas(data,0,j)
         data    =   aux.acc_total(data,0,j)
 
-    # data['U_g'][0,:]        =   np.array([ aux.shell_potential_energy(data,0,j) for j in range(N_shells) ])
-    # data['volume'][0,:]     =   np.array([ aux.shell_volume(data,0,j) for j in range(N_shells) ])
-    # data['area'][0,:]       =   np.array([ aux.shell_inner_area(data,0,j) for j in range(N_shells) ])
-    #
-    # data['mass'][:]         =   density_0 * data['volume'][0]
-    # data['mass_r'][:]       =   np.array([ np.sum(data['mass'][:j]) for j in range(N_shells) ])
-    #
-    # data['n'][0,:]          =   np.array([ aux.shell_particle_density(data,0,j) for j in range(N_shells) ])
-    # data['mfp'][0,:]        =   np.array([ aux.shell_mean_free_path(data,0,j) for j in range(N_shells) ])
-    #
-    # data['p_gas']           =   np.array([ aux.gas_pressure(data,0,j) for j in range(N_shells) ])
-    # data['pvt_const'][:]    =   np.array([ aux.shell_pvt_const(data,j) for j in range(N_shells) ])
-
-    # data['acc'][0,:]        =   np.array([ aux.acc_total(data,0,j) for j in range(N_shells) ])
-    # data['acc_grav'][0,:]   =   np.array([ aux.acc_gravity(data,0,j) for j in range(N_shells) ])
-    # data['acc_rad'][0,:]    =   np.array([ aux.acc_pressure_rad(data,0,j) for j in range(N_shells) ])
-    # data['acc_gas'][0,:]    =   np.array([ aux.acc_pressure_gas(data,0,j) for j in range(N_shells) ])
-
     """fill in arrays"""
-    # data    =   aux.integrate(data,N_time,N_shells,dt)
+    data    =   aux.integrate(data,N_time,N_shells)
 
     """save cloud data frame"""
-    # if saveA: data.to_pickle('../data/cloud_%s' % str(M_clouds[i]) )
+    if saveA: data.to_pickle('../data/cloud_%s' % str(M_clouds[i]) )
     return data
