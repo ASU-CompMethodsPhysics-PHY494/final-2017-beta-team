@@ -45,7 +45,10 @@ def shell_vt_const(V0):
     return C['T'] * V0**(C['gamma']-1)
 
 def shell_temperature(V,vt_const):
-    gamma   =   C['']
+    return vt_const / V**(C['gamma']-1)
+
+def shell_flux_density(T):
+    return C['sigma'] * T**4
 
 # def shell_volume(data,t,j, units=MD):
 #
@@ -244,6 +247,8 @@ def integrate(M_cloud,r_star,N_time,N_shell,tol):
     T           =   np.zeros_like(R)
     # core temp
     T_core      =   np.zeros(N_time)
+    # flux density
+    F           =   np.zeros_like(R)
 
     """ initialize arrays """
     # initial shell outer radii
@@ -256,14 +261,19 @@ def integrate(M_cloud,r_star,N_time,N_shell,tol):
     M           =   density_0 * V0
     # shell internal mass
     Mr          =   np.array([ density_0*volume_star + np.sum(M[:j]) for j in np.arange(1,N_shell+1) ])
-    # shell initial temperature
+    # initial shell temperature
     T0          =   np.ones(N_shell) * C['T']
+    # vt_const
+    VT          =   shell_vt_const(V0)
+    # initial shell flux density
+    F0          =   shell_flux_density(T0)
 
     # initialize 2D arrays
     R[0,:]      =   R0
     V[0,:]      =   V0
     T[0,:]      =   T0
     T_core[0]   =   C['T']
+    F[0,:]      =   F0
 
     # integration
     for i_time in np.arange(1,N_time):
@@ -282,20 +292,23 @@ def integrate(M_cloud,r_star,N_time,N_shell,tol):
 
         for i_shell in range(N_shell):
 
-            # old shell outer radius
-            r                       =   R[i_time-1,i_shell]
-
-            # update shell outer radius
-            rf                      =   rk4(Mr[i_shell],r,dt)       # updated shell radius
-            # updated shell inner radius
+            # update values
+            r                       =   R[i_time-1,i_shell]         # old shell outer radius
+            rf                      =   rk4(Mr[i_shell],r,dt)       # update shell outer radius
             if i_shell == 0:
-                ri                  =   r_star
+                ri                  =   r_star                      # updated shell inner radius
             else:
-                ri                  =   R[i_time,i_shell-1]
+                ri                  =   R[i_time,i_shell-1]         # updated shell inner radius
+            vf                      =   shell_volume(ri,rf)         # updated shell volume
+            vt                      =   VT[i_shell]                 # vt_const
+            tf                      =   shell_temperature(vf,vt)    # updated shell temperature
+            ff                      =   shell_flux_density(tf)      # updated shell flux density
 
             # update arrays
             R[i_time,i_shell]       =   rf
-            V[i_time,i_shell]       =   shell_volume(ri,rf)
+            V[i_time,i_shell]       =   vf
+            T[i_time,i_shell]       =   tf
+            F[i_time,i_shell]       =   ff
 
             # if T_core[i_time] >= C['T_c']:
             #     i_terminate     =   i_time +1           # i_time of last shell
@@ -325,5 +338,6 @@ def integrate(M_cloud,r_star,N_time,N_shell,tol):
     d['Mr']             =   Mr          # ( N_shell )
     d['T']              =   T           # ( N_time , N_shell )
     d['T_core']         =   T_core      # ( N_time )
+    d['F']              =   F           # ( N_time , N_shell )
 
     return pd.Series(d)

@@ -56,6 +56,7 @@ unit_force      =   unit_mass * unit_length / unit_time**2
 unit_energy     =   unit_force * unit_length
 unit_power      =   unit_energy / unit_time
 unit_pressure   =   unit_force / unit_length**2
+unit_density    =   unit_mass / unit_length**3
 
 #===============================================================================
 """ Convert to model units """
