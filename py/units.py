@@ -39,7 +39,8 @@ SI['d']     =   (3/4)*SI['d_H'] + (1/4)*SI['d_He']      # average particle size 
 """ Model Parameters """
 #-------------------------------------------------------------------------------
 
-const['gamma']  =   5/3     # heat capacity ratio for monatomic ideal gas
+# const['gamma']  =   5/3     # heat capacity ratio for monatomic ideal gas
+const['gamma']  =   1.41    # heat capacity ratio for diatomic gas (H and He)
 const['T']      =   10      # initial cloud temperature (K)
 const['T_c']    =   10**7   # critical temperature for H -> He fusion
 

@@ -20,13 +20,6 @@ C           =   units.C
 """ Auxillary Functions """
 #-------------------------------------------------------------------------------
 
-def time_FreeFall(density_0):
-    return np.sqrt( (3 * np.pi) / (32 * C['G'] * density_0) )
-
-#===============================================================================
-""" Initializing Functions """
-#-------------------------------------------------------------------------------
-
 def Jeans_radius(M):
     return (1/5) * (C['G'] * C['mu'] * M) / (C['k'] * C['T'])
 
@@ -34,9 +27,8 @@ def v_sound(T):
     assert float(T) > 0.0, "temperature must be > 0"
     return np.sqrt( (C['gamma'] * C['R'] * T) / (C['mol_He']) )
 
-#===============================================================================
-""" Shell Functions """
-#-------------------------------------------------------------------------------
+def time_FreeFall(density_0):
+    return np.sqrt( (3 * np.pi) / (32 * C['G'] * density_0) )
 
 def shell_volume(r_i,r_f):
     return (4/3) * np.pi * (r_f**3 - r_i**3)
@@ -49,6 +41,14 @@ def shell_temperature(V,vt_const):
 
 def shell_flux_density(T):
     return C['sigma'] * T**4
+
+def cloud_potential_energy(M,R):
+    return -(3/5) * C['G'] * M**2 / R
+
+def core_temperature(T_old,deltaUg_new):
+    E_new = deltaUg_new/2
+    T_add = (2/3) * E_new / C['k']
+    return T_old + T_add
 
 # def shell_volume(data,t,j, units=MD):
 #
@@ -245,10 +245,12 @@ def integrate(M_cloud,r_star,N_time,N_shell,tol):
     V           =   np.zeros_like(R)
     # shell temp
     T           =   np.zeros_like(R)
-    # core temp
-    T_core      =   np.zeros(N_time)
-    # flux density
+    # shell flux density
     F           =   np.zeros_like(R)
+    # cloud potential energy
+    Ug          =   np.zeros(N_time)
+    # core temp
+    T_core      =   np.zeros_like(Ug)
 
     """ initialize arrays """
     # initial shell outer radii
@@ -267,22 +269,30 @@ def integrate(M_cloud,r_star,N_time,N_shell,tol):
     VT          =   shell_vt_const(V0)
     # initial shell flux density
     F0          =   shell_flux_density(T0)
+    # initial cloud potential energy
+    Ug0         =   cloud_potential_energy(M_cloud,r_max)
+    # initial core temperature
+    T_core0     =   C['T']
 
     # initialize 2D arrays
     R[0,:]      =   R0
     V[0,:]      =   V0
     T[0,:]      =   T0
-    T_core[0]   =   C['T']
     F[0,:]      =   F0
+    Ug[0]       =   Ug0
+    T_core[0]   =   T_core0
 
     # integration
     for i_time in np.arange(1,N_time):
 
+        #
         if R[i_time-1,-1] <= r_star:
             i_terminate         =   i_time # i_time when final cloud shell has collapsed.
             R                   =   np.delete(R, np.s_[i_terminate:],0)
             V                   =   np.delete(V, np.s_[i_terminate:],0)
             T                   =   np.delete(T, np.s_[i_terminate:],0)
+            F                   =   np.delete(F, np.s_[i_terminate:])
+            Ug                  =   np.delete(F, np.s_[i_terminate:])
             T_core              =   np.delete(T_core, np.s_[i_terminate:])
 
             R[ R < r_star ]     =   r_star
@@ -292,7 +302,7 @@ def integrate(M_cloud,r_star,N_time,N_shell,tol):
 
         for i_shell in range(N_shell):
 
-            # update values
+            # update shell values
             r                       =   R[i_time-1,i_shell]         # old shell outer radius
             rf                      =   rk4(Mr[i_shell],r,dt)       # update shell outer radius
             if i_shell == 0:
@@ -304,18 +314,35 @@ def integrate(M_cloud,r_star,N_time,N_shell,tol):
             tf                      =   shell_temperature(vf,vt)    # updated shell temperature
             ff                      =   shell_flux_density(tf)      # updated shell flux density
 
-            # update arrays
+            # update shell arrays
             R[i_time,i_shell]       =   rf
             V[i_time,i_shell]       =   vf
             T[i_time,i_shell]       =   tf
             F[i_time,i_shell]       =   ff
 
-            # if T_core[i_time] >= C['T_c']:
-            #     i_terminate     =   i_time +1           # i_time of last shell
-            #     R               =   np.delete(R, np.s_[i_terminate:],1)
-            #     V               =   np.delete(V, np.s_[i_terminate:],1)
-            #     T               =   np.delete(T, np.s_[i_terminate:],1)
-            #     T_core          =   np.delete(T_core, np.s_[i_terminate:])
+        # update time step values
+        r_maxf                  =   R[i_time,-1]                            # max cloud radius now
+        ugf                     =   cloud_potential_energy(M_cloud,r_maxf)  # current gravitational potential energy
+        deltaUg_new             =   abs(ugf - Ug[i_time-1])                 # new gravitational potential energy of cloud
+        t_core_old              =   T_core[i_time-1]                        # old core tempperature
+        t_core_new              =   core_temperature(t_core_old,deltaUg_new)# new core tempperature
+
+        # update time step arrays
+        Ug[i_time]              =   ugf
+        T_core[i_time]          =   t_core_new
+
+        # core temperature termination condition
+        if t_core_new >= C['T_c']:
+            i_terminate         =   i_time # i_time when final cloud shell has collapsed.
+            R                   =   np.delete(R, np.s_[i_terminate:],0)
+            V                   =   np.delete(V, np.s_[i_terminate:],0)
+            T                   =   np.delete(T, np.s_[i_terminate:],0)
+            F                   =   np.delete(F, np.s_[i_terminate:])
+            Ug                  =   np.delete(F, np.s_[i_terminate:])
+            T_core              =   np.delete(T_core, np.s_[i_terminate:])
+            print("star turned on at %s Myr" % (i_time*dt) )
+            break
+
 
     d                   =   {}
     # scalars               # value
@@ -337,7 +364,8 @@ def integrate(M_cloud,r_star,N_time,N_shell,tol):
     d['M']              =   M           # ( N_shell )
     d['Mr']             =   Mr          # ( N_shell )
     d['T']              =   T           # ( N_time , N_shell )
-    d['T_core']         =   T_core      # ( N_time )
     d['F']              =   F           # ( N_time , N_shell )
+    d['Ug']             =   Ug          # ( N_time )
+    d['T_core']         =   T_core      # ( N_time )
 
     return pd.Series(d)
