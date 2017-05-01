@@ -55,7 +55,7 @@ names           =   {'length':'pc',
                      }
 unit_length     =   1/3.086e16                  # m -> pc
 unit_time       =   1/(60*60*24*365.25*1e6)     # s -> Myr
-unit_mass       =   1/1.9891e30                # kg -> solar mass
+unit_mass       =   1/1.9891e30                 # kg -> solar mass
 unit_speed      =   unit_length / unit_time
 unit_acc        =   unit_length / unit_time**2
 unit_force      =   unit_mass * unit_length / unit_time**2
@@ -64,13 +64,15 @@ unit_power      =   unit_energy / unit_time
 unit_pressure   =   unit_force / unit_length**2
 unit_density    =   unit_mass / unit_length**3
 
+solar_lum       =   1/3.828e26                  # W -> solar luminosity
+
 #===============================================================================
 """ Convert to model units """
 #-------------------------------------------------------------------------------
 
 def unit_conversion():
     """ converts SI units to model units and returns dictionary of values"""
-    # dictionary of constants and parameters in SI units
+    # dictionary of constants and parameters in model units
     MD = {}
 
     MD['m_H']   =   SI['m_H'] * unit_mass

@@ -107,9 +107,19 @@ def single_cloud_movie(i, degree=5,interval=10,writer='ffmpeg',dpi=400,saveA=Tru
         print("\ndid not find 'cloud_%s'. Calculating..." % M_clouds[i])
         data    =   integrate(M_clouds[i],R_star[i])
 
-    TIME    =   data['TIME']
+    TIME        =   data['TIME']
 
-    fig     =   plt.figure(figsize=p['polar'])
+    # Find maximum luminosity of a dA
+    PHI     =   data['F']
+    dx0     =   data['r_max'] / p['N_grid']
+    dA0     =   dx0**2
+    Lmin    =   np.min(PHI) * dA
+    Lmax    =   np.max(PHI) * dA
+    print(Lmin,Lmax)
+
+    # Zlimits     =
+    fig         =   plt.figure(figsize=p['polar'])
+    levels      =   MaxNLocator(nbins=50).tick_values( Z.min() , Z.max() )
     # make normalized colorbar
 
     def animator(i_time):
@@ -135,7 +145,8 @@ def single_cloud_movie(i, degree=5,interval=10,writer='ffmpeg',dpi=400,saveA=Tru
         # luminosity grid: L(x,y) = sigma * T(x,y)**4 * dA
         Z           =   C['sigma'] * tp(np.sqrt(X**2 + Y**2))**4 * dA
         Z           =   Z[:-1, :-1]
-        levels      =   MaxNLocator(nbins=50).tick_values( Z.min(),Z.max() )
+        # levels      =   MaxNLocator(nbins=50).tick_values( Z.min() , Z.max() )
+        # levels      =   MaxNLocator(nbins=50).tick_values( Lmin , Lmax )
 
         cmap        =   plt.get_cmap('hot')
         norm        =   BoundaryNorm(levels, ncolors=cmap.N, clip=True)
