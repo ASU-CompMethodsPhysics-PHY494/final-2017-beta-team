@@ -47,108 +47,6 @@ def core_temperature(T_old,deltaUg_new):
     T_add = (2/3) * E_new / C['k']
     return T_old + T_add
 
-# def shell_volume(data,t,j, units=MD):
-#
-#     # shell inner radius
-#     if int(j) == 0:
-#         r_i = 0
-#     else:
-#         r_i =   data['r'][t,j-1]
-#
-#     # shell outer radius
-#     r_f     =   data['r'][t,j]
-#
-#     # shell volume
-#     V_tj                =   (4/3) * np.pi * (r_f**3 - r_i**3)
-#     data['volume'][t,j] =   V_tj
-#     return data
-#
-# def shell_inner_area(data,t,j, units=MD):
-#     if j == 0:
-#         A       =   0
-#     else:
-#         # inner radius
-#         r_i     =   data['r'][t,j-1]
-#         A       = 4 * np.pi * r_i**2
-#
-#     data['area'][t,j]   =   A
-#     return data
-#
-# def shell_particle_density(data,t,j, units=MD):
-#     n               =   data['mass'][j] / units['mu'] / data['volume'][t,j]
-#     data['n'][t,j]  =   n
-#     return data
-#
-# def shell_mean_free_path(data,t,j, units=MD):
-#     mfp                 =   1 / (np.sqrt(2) * np.pi * units['d']**2 * data['n'][t,j])
-#     data['mfp'][t,j]    =   mfp
-#     return data
-#
-# def shell_potential_energy(data,t,j, units=MD):
-#     # internal mass
-#     M_r     =   data['mass_r'][j]
-#     # shell mass
-#     m_j     =   data['mass'][j]
-#     # shell position
-#     pos     =   data['r'][t,j]
-#
-#     U_g                 =   units['G'] * M_r * m_j / pos
-#     data['U_g'][t,j]    =   U_g
-#     return data
-#
-# def shell_gas_pressure(data,t,j, units=MD):
-#     # shell mass
-#     m_j     =   data['mass'][j]
-#     # shell temperature
-#     T_tj    =   data['temp'][t,j]
-#     # shel volume
-#     V_tj    =   data['volume'][t,j]
-#
-#     p_gas               =   gas_pressure(m_j,T_tj,V_tj, units=units)
-#     data['p_gas'][t,j]  =   p_gas
-#     return data
-#
-# def shell_pvt_const(data,j, t=0,units=MD):
-#     """ since the shell has constant mass
-#     can use pV/T = const"""
-#     # shell temperature
-#     T_tj    =   data['temp'][t,j]
-#     # shel volume
-#     V_tj    =   data['volume'][t,j]
-#     # shell pressure
-#     P_tj    =   data['p_gas'][t,j]
-#
-#     pvt_const               =   P_tj * V_tj / T_tj
-#     data['pvt_const'][j]    =   pvt_const
-#     return data
-#
-# def shell_vt_const(data,j, t=0,units=MD):
-#     # shell temp
-#     T_tj    =   data['temp'][t,j]
-#     # shell volume
-#     V_tj    =   data['volume'][t,j]
-#
-#     vt_const            =   T_tj * V_tj**(const['gamma']-1)
-#     data['vt_const'][j] =   vt_const
-#     return data
-#
-# def shell_temperature(data,t,j, units=MD):
-#     const               =   data['vt_const'][j]
-#     V_tj                =   data['volume'][t,j]
-#     gamma               =   const['gamma']
-#     data['temp'][t,j]   =   const / V_tj**(gamma-1)
-#     return data
-#
-# def shell_luminosity_flux(data,t,j, units=MD):
-#     T_tj            =   data['temp'][t,j]
-#     r_tj            =   data['r'][t,j]
-#     L_tj            =   4 * np.pi * r_tj**2 * units['sigma'] * T_tj**4
-#     F_tj            =   units['sigma'] * T_tj**4
-#
-#     data['L'][t,j]  =   L_tj
-#     data['F'][t,j]  =   F_tj
-#     return data
-
 #===============================================================================
 """ Acceleration Functions """
 #-------------------------------------------------------------------------------
@@ -175,14 +73,6 @@ def core_temperature(T_old,deltaUg_new):
 #         acc_gas                 =   A_tj * P / m_j
 #
 #     data['acc_gas'][t,j]    =   acc_gas
-#     return data
-#
-# def acc_pressure_rad(data,t,j, units=MD):
-#     # radiation pressure from inner shell
-#     p   =   (1/3) * units['a'] * data['temp'][t,j-1]
-#
-#     acc_rad             =   data['area'][t,j] * p / data['mass'][j]
-#     data['acc_rad']     =   acc_rad
 #     return data
 
 def acc_gravity(M_r,r):
@@ -221,6 +111,7 @@ def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
     t_ff        =   time_FreeFall(density_0)
     t_max       =   t_ff * .7
     dt          =   t_max/N_time
+    TIME        =   np.arange(0,t_max+dt,dt)
 
     # # Only implement if using gas pressure
     # """ if dr_gas > dr, gas pressure can
@@ -236,40 +127,34 @@ def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
     assert r_max < dr_light, "cloud radius must be less than (c) x (dt)"
 
     """ make empty arrays """
-    # shell outer radii
-    R           =   np.zeros((N_time,N_shell))
-    # shell volume
-    V           =   np.zeros_like(R)
-    # shell temp
-    T           =   np.zeros_like(R)
-    # shell flux density
-    F           =   np.zeros_like(R)
-    # cloud potential energy
-    Ug          =   np.zeros(N_time)
-    # core temp
-    T_core      =   np.zeros_like(Ug)
+    R       =   np.zeros((N_time,N_shell))  # shell outer radii
+    V       =   np.zeros_like(R)            # shell volume
+    T       =   np.zeros_like(R)            # shell temp
+    F       =   np.zeros_like(R)            # shell flux density
+    Ug      =   np.zeros(N_time)            # cloud potential energy
+    T_core  =   np.zeros_like(Ug)           # core temp
 
     """ initialize arrays """
     # initial shell outer radii
-    R0          =   np.linspace(r_star+dr,r_max,N_shell)
+    R0      =   np.linspace(r_star+dr,r_max,N_shell)
     # initial shell volume
-    V0_0        =   shell_volume(r_star,R0[0])
-    V0_1_N      =   np.array([ shell_volume(R0[j-1],R0[j]) for j in np.arange(1,N_shell) ])
-    V0          =   np.hstack(( V0_0 , V0_1_N ))
+    V0_0    =   shell_volume(r_star,R0[0])
+    V0_1_N  =   np.array([ shell_volume(R0[j-1],R0[j]) for j in np.arange(1,N_shell) ])
+    V0      =   np.hstack(( V0_0 , V0_1_N ))
     # shell mass
-    M           =   density_0 * V0
+    M       =   density_0 * V0
     # shell internal mass
-    Mr          =   np.array([ density_0*volume_star + np.sum(M[:j]) for j in np.arange(1,N_shell+1) ])
+    Mr      =   np.array([ density_0*volume_star + np.sum(M[:j]) for j in np.arange(1,N_shell+1) ])
     # initial shell temperature
-    T0          =   np.ones(N_shell) * C['T']
+    T0      =   np.ones(N_shell) * C['T']
     # vt_const
-    VT          =   shell_vt_const(V0)
+    VT      =   shell_vt_const(V0)
     # initial shell flux density
-    F0          =   shell_flux_density(T0)
+    F0      =   shell_flux_density(T0)
     # initial cloud potential energy
-    Ug0         =   cloud_potential_energy(M_cloud,r_max)
+    Ug0     =   cloud_potential_energy(M_cloud,r_max)
     # initial core temperature
-    T_core0     =   C['T']
+    T_core0 =   C['T']
 
     # initialize 2D arrays
     R[0,:]      =   R0
@@ -288,9 +173,10 @@ def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
             R                   =   np.delete(R, np.s_[i_terminate:],0)
             V                   =   np.delete(V, np.s_[i_terminate:],0)
             T                   =   np.delete(T, np.s_[i_terminate:],0)
-            F                   =   np.delete(F, np.s_[i_terminate:])
+            F                   =   np.delete(F, np.s_[i_terminate:],0)
             Ug                  =   np.delete(F, np.s_[i_terminate:])
             T_core              =   np.delete(T_core, np.s_[i_terminate:])
+            TIME                =   np.delete(TIME, np.s_[i_terminate:])
 
             R[ R < r_star ]     =   r_star
             V[ V < volume_star] =   volume_star
@@ -334,16 +220,12 @@ def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
             R                   =   np.delete(R, np.s_[i_terminate:],0)
             V                   =   np.delete(V, np.s_[i_terminate:],0)
             T                   =   np.delete(T, np.s_[i_terminate:],0)
-            F                   =   np.delete(F, np.s_[i_terminate:])
+            F                   =   np.delete(F, np.s_[i_terminate:],0)
             Ug                  =   np.delete(F, np.s_[i_terminate:])
             T_core              =   np.delete(T_core, np.s_[i_terminate:])
+            TIME                =   np.delete(TIME, np.s_[i_terminate:])
             print("\nstar turned on at %s Myr" % (i_time*dt) )
             break
-
-    # calculate time array
-    N_t                 =   len(T_core)
-    TIME                =   np.arange(0,(N_t+1)*dt,dt)
-
 
     d                   =   {}
     # scalars               # value

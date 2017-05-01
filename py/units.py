@@ -50,7 +50,7 @@ const['T_c']    =   10**7   # critical temperature for H -> He fusion
 
 names           =   {'length':'pc',
                      'time':'Myr',
-                     'mass':'M$_\odot$'
+                     'mass':'M$_\odot$',
                      'temp':'K'
                      }
 unit_length     =   1/3.086e16                  # m -> pc
