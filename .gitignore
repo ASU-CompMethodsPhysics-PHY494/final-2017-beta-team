@@ -2,9 +2,13 @@ $ git status
 
 # ignore file types
 **.npy
-**.mp4
 **.pyc
 
 # ignore folders
 **__pycache__/
 **.ipynb_checkpoints/
+data/**
+
+# always include
+!**.txt
+!**.py

@@ -4,9 +4,6 @@
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-import matplotlib.cm as cm
 import units as units
 import pdb
 
@@ -20,269 +17,360 @@ C           =   units.C
 """ Auxillary Functions """
 #-------------------------------------------------------------------------------
 
-def unit_conversion():
-    """ converts SI units to model units and returns dictionary of values"""
-    # dictionary of constants and parameters in SI units
-    MD = {}
+def Jeans_radius(M):
+    return (1/5) * (C['G'] * C['mu'] * M) / (C['k'] * C['T'])
 
-    MD['m_H']   =   SI['m_H'] * unit_mass
-    MD['m_He']  =   SI['m_He'] * unit_mass
-    MD['mol_H'] =   SI['mol_H'] * unit_mass
-    MD['mol_He']=   SI['mol_He'] * unit_mass
-    MD['d_H']   =   SI['d_H'] * unit_length
-    MD['d_He']  =   SI['d_He'] * unit_length
-    MD['c']     =   SI['c'] * unit_speed
-    MD['G']     =   SI['G'] * unit_force * unit_length**2 / unit_mass**2
-    MD['k']     =   SI['k'] * unit_energy
-    MD['sigma'] =   SI['sigma'] * unit_power / unit_length**2
-    MD['a']     =   SI['a'] * unit_energy / unit_length**3
-    MD['R']     =   SI['R'] * unit_energy
-    MD['mu']    =   SI['mu'] * unit_mass
-    MD['mol_mu']=   SI['mol_mu'] * unit_mass
-    MD['d']     =   SI['d'] * unit_length
-    return MD
-""" dictionary of constants and parameters
-in model units: pc, Myr, solar mass"""
-MD          =   unit_conversion()
-
-def gas_pressure(m,T,V, units=MD):
-    return m * units['k'] * T / units['mu'] / V
-
-#===============================================================================
-""" Initializing Functions """
-#-------------------------------------------------------------------------------
-
-def Jeans_radius(M, units=MD):
-    """ Jean's radius
-
-    Parameters
-    ----------
-    M:      initial cloud mass in desired units
-    units:  ** dictionary of units  - default = MD
-    """
-    return (1/5) * (units['G'] * units['mu'] * M) / (units['k'] * const['T'])
-
-def v_sound(T, units=MD):
-    """ sound speed in gas
-
-    Parameters
-    ----------
-    T:      temperature of uniform cloud or shell (K)
-    units:  ** dictionary of units  - default = MD
-    """
+def v_sound(T):
     assert float(T) > 0.0, "temperature must be > 0"
-    return np.sqrt( (const['gamma'] * units['R'] * T) / (units['mol_He']) )
+    return np.sqrt( (C['gamma'] * C['R'] * T) / (C['mol_He']) )
 
-#===============================================================================
-""" Shell Functions """
-#-------------------------------------------------------------------------------
+def time_FreeFall(density_0):
+    return np.sqrt( (3 * np.pi) / (32 * C['G'] * density_0) )
 
-def shell_volume(data,t,j, units=MD):
+def shell_volume(r_i,r_f):
+    return (4/3) * np.pi * (r_f**3 - r_i**3)
 
-    # shell inner radius
-    if int(j) == 0:
-        r_i = 0
-    else:
-        r_i =   data['r'][t,j-1]
+def shell_vt_const(V0):
+    return C['T'] * V0**(C['gamma']-1)
 
-    # shell outer radius
-    r_f     =   data['r'][t,j]
+def shell_temperature(V,vt_const):
+    return vt_const / V**(C['gamma']-1)
 
-    # shell volume
-    V_tj                =   (4/3) * np.pi * (r_f**3 - r_i**3)
-    data['volume'][t,j] =   V_tj
-    return data
+def shell_flux_density(T):
+    return C['sigma'] * T**4
 
-def shell_inner_area(data,t,j, units=MD):
-    if j == 0:
-        A       =   0
-    else:
-        # inner radius
-        r_i     =   data['r'][t,j-1]
-        A       = 4 * np.pi * r_i**2
+def cloud_potential_energy(M,R):
+    return -(3/5) * C['G'] * M**2 / R
 
-    data['area'][t,j]   =   A
-    return data
+def core_temperature(T_old,deltaUg_new):
+    E_new = deltaUg_new/2
+    T_add = (2/3) * E_new / C['k']
+    return T_old + T_add
 
-def shell_particle_density(data,t,j, units=MD):
-    n               =   data['mass'][j] / units['mu'] / data['volume'][t,j]
-    data['n'][t,j]  =   n
-    return data
-
-def shell_mean_free_path(data,t,j, units=MD):
-    mfp                 =   1 / (np.sqrt(2) * np.pi * units['d']**2 * data['n'][t,j])
-    data['mfp'][t,j]    =   mfp
-    return data
-
-def shell_potential_energy(data,t,j, units=MD):
-    # internal mass
-    M_r     =   data['mass_r'][j]
-    # shell mass
-    m_j     =   data['mass'][j]
-    # shell position
-    pos     =   data['r'][t,j]
-
-    U_g                 =   units['G'] * M_r * m_j / pos
-    data['U_g'][t,j]    =   U_g
-    return data
-
-def shell_gas_pressure(data,t,j, units=MD):
-    # shell mass
-    m_j     =   data['mass'][j]
-    # shell temperature
-    T_tj    =   data['temp'][t,j]
-    # shel volume
-    V_tj    =   data['volume'][t,j]
-
-    p_gas               =   gas_pressure(m_j,T_tj,V_tj, units=units)
-    data['p_gas'][t,j]  =   p_gas
-    return data
-
-def shell_pvt_const(data,j, t=0,units=MD):
-    """ since the shell has constant mass
-    can use pV/T = const"""
-    # shell temperature
-    T_tj    =   data['temp'][t,j]
-    # shel volume
-    V_tj    =   data['volume'][t,j]
-    # shell pressure
-    P_tj    =   data['p_gas'][t,j]
-
-    pvt_const               =   P_tj * V_tj / T_tj
-    data['pvt_const'][j]    =   pvt_const
-    return data
-
-def shell_vt_const(data,j, t=0,units=MD):
-    # shell temp
-    T_tj    =   data['temp'][t,j]
-    # shell volume
-    V_tj    =   data['volume'][t,j]
-
-    vt_const            =   T_tj * V_tj**(const['gamma']-1)
-    data['vt_const'][j] =   vt_const
-    return data
-
-def shell_temperature(data,t,j, units=MD):
-    const               =   data['vt_const'][j]
-    V_tj                =   data['volume'][t,j]
-    gamma               =   const['gamma']
-    data['temp'][t,j]   =   const / V_tj**(gamma-1)
-    return data
-
-def shell_luminosity_flux(data,t,j, units=MD):
-    T_tj            =   data['temp'][t,j]
-    r_tj            =   data['r'][t,j]
-    L_tj            =   4 * np.pi * r_tj**2 * units['sigma'] * T_tj**4
-    F_tj            =   units['sigma'] * T_tj**4
-
-    data['L'][t,j]  =   L_tj
-    data['F'][t,j]  =   F_tj
-    return data
+# def shell_volume(data,t,j, units=MD):
+#
+#     # shell inner radius
+#     if int(j) == 0:
+#         r_i = 0
+#     else:
+#         r_i =   data['r'][t,j-1]
+#
+#     # shell outer radius
+#     r_f     =   data['r'][t,j]
+#
+#     # shell volume
+#     V_tj                =   (4/3) * np.pi * (r_f**3 - r_i**3)
+#     data['volume'][t,j] =   V_tj
+#     return data
+#
+# def shell_inner_area(data,t,j, units=MD):
+#     if j == 0:
+#         A       =   0
+#     else:
+#         # inner radius
+#         r_i     =   data['r'][t,j-1]
+#         A       = 4 * np.pi * r_i**2
+#
+#     data['area'][t,j]   =   A
+#     return data
+#
+# def shell_particle_density(data,t,j, units=MD):
+#     n               =   data['mass'][j] / units['mu'] / data['volume'][t,j]
+#     data['n'][t,j]  =   n
+#     return data
+#
+# def shell_mean_free_path(data,t,j, units=MD):
+#     mfp                 =   1 / (np.sqrt(2) * np.pi * units['d']**2 * data['n'][t,j])
+#     data['mfp'][t,j]    =   mfp
+#     return data
+#
+# def shell_potential_energy(data,t,j, units=MD):
+#     # internal mass
+#     M_r     =   data['mass_r'][j]
+#     # shell mass
+#     m_j     =   data['mass'][j]
+#     # shell position
+#     pos     =   data['r'][t,j]
+#
+#     U_g                 =   units['G'] * M_r * m_j / pos
+#     data['U_g'][t,j]    =   U_g
+#     return data
+#
+# def shell_gas_pressure(data,t,j, units=MD):
+#     # shell mass
+#     m_j     =   data['mass'][j]
+#     # shell temperature
+#     T_tj    =   data['temp'][t,j]
+#     # shel volume
+#     V_tj    =   data['volume'][t,j]
+#
+#     p_gas               =   gas_pressure(m_j,T_tj,V_tj, units=units)
+#     data['p_gas'][t,j]  =   p_gas
+#     return data
+#
+# def shell_pvt_const(data,j, t=0,units=MD):
+#     """ since the shell has constant mass
+#     can use pV/T = const"""
+#     # shell temperature
+#     T_tj    =   data['temp'][t,j]
+#     # shel volume
+#     V_tj    =   data['volume'][t,j]
+#     # shell pressure
+#     P_tj    =   data['p_gas'][t,j]
+#
+#     pvt_const               =   P_tj * V_tj / T_tj
+#     data['pvt_const'][j]    =   pvt_const
+#     return data
+#
+# def shell_vt_const(data,j, t=0,units=MD):
+#     # shell temp
+#     T_tj    =   data['temp'][t,j]
+#     # shell volume
+#     V_tj    =   data['volume'][t,j]
+#
+#     vt_const            =   T_tj * V_tj**(const['gamma']-1)
+#     data['vt_const'][j] =   vt_const
+#     return data
+#
+# def shell_temperature(data,t,j, units=MD):
+#     const               =   data['vt_const'][j]
+#     V_tj                =   data['volume'][t,j]
+#     gamma               =   const['gamma']
+#     data['temp'][t,j]   =   const / V_tj**(gamma-1)
+#     return data
+#
+# def shell_luminosity_flux(data,t,j, units=MD):
+#     T_tj            =   data['temp'][t,j]
+#     r_tj            =   data['r'][t,j]
+#     L_tj            =   4 * np.pi * r_tj**2 * units['sigma'] * T_tj**4
+#     F_tj            =   units['sigma'] * T_tj**4
+#
+#     data['L'][t,j]  =   L_tj
+#     data['F'][t,j]  =   F_tj
+#     return data
 
 #===============================================================================
 """ Acceleration Functions """
 #-------------------------------------------------------------------------------
 
-def acc_pressure_gas(data,t,j, units=MD):
-    """gas pressure on shell from interior shell"""
-    if j == 0:
-        acc_gas     =   0
-    else:
-        # mass of inner shell
-        m_i     =   data['mass'][j-1]
-        # temperature of inner shell
-        T_ti    =   data['temp'][t,j-1]
-        # volume of inner shell
-        V_ti    =   data['volume'][t,j-1]
-        # gas pressure exerted on shell
-        P       =   gas_pressure(m_i,T_ti,V_ti)
+# def acc_pressure_gas(data,t,j, units=MD):
+#     """gas pressure on shell from interior shell"""
+#     if j == 0:
+#         acc_gas     =   0
+#     else:
+#         # mass of inner shell
+#         m_i     =   data['mass'][j-1]
+#         # temperature of inner shell
+#         T_ti    =   data['temp'][t,j-1]
+#         # volume of inner shell
+#         V_ti    =   data['volume'][t,j-1]
+#         # gas pressure exerted on shell
+#         P       =   gas_pressure(m_i,T_ti,V_ti)
+#
+#         # surface area of shell
+#         A_tj    =   data['area'][t,j]
+#         # mass of shell
+#         m_j     =   data['mass'][j]
+#
+#         acc_gas                 =   A_tj * P / m_j
+#
+#     data['acc_gas'][t,j]    =   acc_gas
+#     return data
+#
+# def acc_pressure_rad(data,t,j, units=MD):
+#     # radiation pressure from inner shell
+#     p   =   (1/3) * units['a'] * data['temp'][t,j-1]
+#
+#     acc_rad             =   data['area'][t,j] * p / data['mass'][j]
+#     data['acc_rad']     =   acc_rad
+#     return data
 
-        # surface area of shell
-        A_tj    =   data['area'][t,j]
-        # mass of shell
-        m_j     =   data['mass'][j]
+def acc_gravity(M_r,r):
+    return - C['G'] * M_r / r**2
 
-        acc_gas                 =   A_tj * P / m_j
-
-    data['acc_gas'][t,j]    =   acc_gas
-    return data
-
-def acc_pressure_rad(data,t,j, units=MD):
-    # radiation pressure from inner shell
-    p   =   (1/3) * units['a'] * data['temp'][t,j-1]
-
-    acc_rad             =   data['area'][t,j] * p / data['mass'][j]
-    data['acc_rad']     =   acc_rad
-    return data
-
-def acc_gravity(data,t,j,units=MD):
-    # radius of shell
-    r_tj    =   data['r'][t,j]
-    M_r     =   data['mass_r'][j]
-
-    acc_grav                =   - units['G'] * M_r / r_tj**2
-    data['acc_grav'][t,j]   =   acc_grav
-    return data
-
-def acc_total(data,t,j, units=MD):
-    # a_gas   =   data['acc_gas'][t,j]
-    # a_rad   =   Data['acc_rad'][t,j]
-    a_grav  =   data['acc_grav'][t,j]
-
-    acc                 =   a_grav
-    data['acc'][t,j]    =   acc
-    return data
+def acc_total(M_r,r):
+    # a_gas   =   NotImplemented
+    # a_rad   =   NotImplemented
+    a_grav  =   acc_gravity(M_r,r)
+    return a_grav
 
 #===============================================================================
 """ Integration Functions """
 #-------------------------------------------------------------------------------
 
-def velocity_verlet(data,t,j, units=MD):
-    dt                  =   data['dt']
-    acc1                =   data['acc'][t,j]
-    v_half              =   data['vel'][t,j] + (dt/2)*acc1
-    data['r'][t+1,j]    =   data['r'][t,j] + dt*v_half
-    acc_total(data,t+1,j,units=units)
-    acc2                =   data['acc'][t+1,j]
-    data['vel'][t+1,j]  =   v_half + (dt/2)*acc2
+def rk4(M_r,r,dt):
+    k1  =   dt * acc_total(M_r,r)
+    k2  =   dt * acc_total(M_r,r + k1/2)
+    k3  =   dt * acc_total(M_r,r + k2/2)
+    k4  =   dt * acc_total(M_r,r + k3)
+    return r + (1/3)*(k1/2 + k2 + k3 + k4/2)
 
-    return data
+def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
 
-def Euler(data,t,j, units=MD):
+    """ Jean's radius of cloud and
+    radius increment: pc """
+    r_max       =   Jeans_radius(M_cloud)
+    dr          =   (r_max-r_star)/N_shell
 
-    acc                 =   data['acc'][t,j]
-    vel                 =   data['vel'][t,j] + acc*data['dt']
-    pos                 =   data['r'][t,j] + vel*data['dt']
+    """ initial cloud volume and density """
+    volume_0    =   (4/3) * np.pi * r_max**3
+    volume_star =   (4/3) * np.pi * r_star**3
+    density_0   =   M_cloud/volume_0
 
-    data['acc'][t+1,j]  =   acc
-    data['vel'][t+1,j]  =   vel
-    data['r'][t+1,j]    =   pos
-    return data
+    """ calculate free fall time: Myr """
+    t_ff        =   time_FreeFall(density_0)
+    t_max       =   t_ff * .7
+    dt          =   t_max/N_time
 
-def integrate(data,N_time,N_shells, units=MD,integrator=velocity_verlet):
+    # # Only implement if using gas pressure
+    # """ if dr_gas > dr, gas pressure can
+    # communicate in single time step. """
+    # v_gas       =   aux.v_sound(C['T'])
+    # dr_gas      =   v_gas*dt
+    # assert dr < dr_gas, "shell widths must be less than (v_gas) x (dt)"
 
-    def print_percent(i):
-        p_i =   np.linspace(0,N_time,11).astype(int)
-        if np.any(i == p_i): print("%s percent" % int( 100 * i / (N_time-1) ))
+    """ if dr_light > r_max, signals that
+    travel at light speed can interact
+    across cloud in single time step."""
+    dr_light    =   C['c']*dt
+    assert r_max < dr_light, "cloud radius must be less than (c) x (dt)"
 
-    for j in range(N_shells):
-        t       =   0
-        r_j     =   data['r'][t,j]
-        r_0     =   data['r'][t,0]
-        while all((r_j > r_0, t < N_time-1 )):
-            data    =   integrator(data,t,j, units=units)
-            t       +=  1
-            r_j     =   data['r'][t,j]
+    """ make empty arrays """
+    # shell outer radii
+    R           =   np.zeros((N_time,N_shell))
+    # shell volume
+    V           =   np.zeros_like(R)
+    # shell temp
+    T           =   np.zeros_like(R)
+    # shell flux density
+    F           =   np.zeros_like(R)
+    # cloud potential energy
+    Ug          =   np.zeros(N_time)
+    # core temp
+    T_core      =   np.zeros_like(Ug)
+
+    """ initialize arrays """
+    # initial shell outer radii
+    R0          =   np.linspace(r_star+dr,r_max,N_shell)
+    # initial shell volume
+    V0_0        =   shell_volume(r_star,R0[0])
+    V0_1_N      =   np.array([ shell_volume(R0[j-1],R0[j]) for j in np.arange(1,N_shell) ])
+    V0          =   np.hstack(( V0_0 , V0_1_N ))
+    # shell mass
+    M           =   density_0 * V0
+    # shell internal mass
+    Mr          =   np.array([ density_0*volume_star + np.sum(M[:j]) for j in np.arange(1,N_shell+1) ])
+    # initial shell temperature
+    T0          =   np.ones(N_shell) * C['T']
+    # vt_const
+    VT          =   shell_vt_const(V0)
+    # initial shell flux density
+    F0          =   shell_flux_density(T0)
+    # initial cloud potential energy
+    Ug0         =   cloud_potential_energy(M_cloud,r_max)
+    # initial core temperature
+    T_core0     =   C['T']
+
+    # initialize 2D arrays
+    R[0,:]      =   R0
+    V[0,:]      =   V0
+    T[0,:]      =   T0
+    F[0,:]      =   F0
+    Ug[0]       =   Ug0
+    T_core[0]   =   T_core0
+
+    # integration
+    for i_time in np.arange(1,N_time):
+
+        #
+        if R[i_time-1,-1] <= r_star:
+            i_terminate         =   i_time # i_time when final cloud shell has collapsed.
+            R                   =   np.delete(R, np.s_[i_terminate:],0)
+            V                   =   np.delete(V, np.s_[i_terminate:],0)
+            T                   =   np.delete(T, np.s_[i_terminate:],0)
+            F                   =   np.delete(F, np.s_[i_terminate:])
+            Ug                  =   np.delete(F, np.s_[i_terminate:])
+            T_core              =   np.delete(T_core, np.s_[i_terminate:])
+
+            R[ R < r_star ]     =   r_star
+            V[ V < volume_star] =   volume_star
+            print("\nstar collapsed at %s Myr" % (i_time*dt) )
+            break
+
+        for i_shell in range(N_shell):
+
+            # update shell values
+            r                       =   R[i_time-1,i_shell]         # old shell outer radius
+            rf                      =   rk4(Mr[i_shell],r,dt)       # update shell outer radius
+            if i_shell == 0:
+                ri                  =   r_star                      # updated shell inner radius
+            else:
+                ri                  =   R[i_time,i_shell-1]         # updated shell inner radius
+            vf                      =   shell_volume(ri,rf)         # updated shell volume
+            vt                      =   VT[i_shell]                 # vt_const
+            tf                      =   shell_temperature(vf,vt)    # updated shell temperature
+            ff                      =   shell_flux_density(tf)      # updated shell flux density
+
+            # update shell arrays
+            R[i_time,i_shell]       =   rf
+            V[i_time,i_shell]       =   vf
+            T[i_time,i_shell]       =   tf
+            F[i_time,i_shell]       =   ff
+
+        # update time step values
+        r_maxf                  =   R[i_time,-1]                            # max cloud radius now
+        ugf                     =   cloud_potential_energy(M_cloud,r_maxf)  # current gravitational potential energy
+        deltaUg_new             =   abs(ugf - Ug[i_time-1])                 # new gravitational potential energy of cloud
+        t_core_old              =   T_core[i_time-1]                        # old core tempperature
+        t_core_new              =   core_temperature(t_core_old,deltaUg_new)# new core tempperature
+
+        # update time step arrays
+        Ug[i_time]              =   ugf
+        T_core[i_time]          =   t_core_new
+
+        # core temperature termination condition
+        if t_core_new >= C['T_c']:
+            i_terminate         =   i_time + 1 # i_time when final cloud shell has collapsed.
+            R                   =   np.delete(R, np.s_[i_terminate:],0)
+            V                   =   np.delete(V, np.s_[i_terminate:],0)
+            T                   =   np.delete(T, np.s_[i_terminate:],0)
+            F                   =   np.delete(F, np.s_[i_terminate:])
+            Ug                  =   np.delete(F, np.s_[i_terminate:])
+            T_core              =   np.delete(T_core, np.s_[i_terminate:])
+            print("\nstar turned on at %s Myr" % (i_time*dt) )
+            break
+
+    # calculate time array
+    N_t                 =   len(T_core)
+    TIME                =   np.arange(0,(N_t+1)*dt,dt)
 
 
+    d                   =   {}
+    # scalars               # value
+    d['M_cloud']        =   M_cloud
+    d['r_star']         =   r_star
+    d['r_max']          =   r_max
+    d['dr']             =   dr
+    d['volume_0']       =   volume_0
+    d['volume_star']    =   volume_star
+    d['density_0']      =   density_0
+    d['t_ff']           =   t_ff
+    d['t_max']          =   t_max
+    d['dt']             =   dt
+    d['t_collapse']     =   dt * i_time
 
+    # arrays                array       # ( dimention )
+    d['R']              =   R           # ( N_time , N_shell )
+    d['V']              =   V           # ( N_time , N_shell )
+    d['M']              =   M           # ( N_shell )
+    d['Mr']             =   Mr          # ( N_shell )
+    d['T']              =   T           # ( N_time , N_shell )
+    d['F']              =   F           # ( N_time , N_shell )
+    d['Ug']             =   Ug          # ( N_time )
+    d['T_core']         =   T_core      # ( N_time )
+    d['TIME']           =   TIME        # ( N_time )
 
-    # for t in range(N_time-1):
-    #     print_percent(t)
-    #
-    #     for j in range(N_shells):
-    #
-    #         data    =   integrator(data,t,j,acc_total)
-    #         # fill in other 2D data (besides 'r', 'vel', and 'acc')
-
+    # save and return
+    data                =   pd.Series(d)
+    if saveA: data.to_pickle('../data/cloud_%s' % M_cloud)
     return data

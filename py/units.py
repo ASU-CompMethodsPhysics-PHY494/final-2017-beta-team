@@ -48,6 +48,11 @@ const['T_c']    =   10**7   # critical temperature for H -> He fusion
 """ Conversion factors """
 #-------------------------------------------------------------------------------
 
+names           =   {'length':'pc',
+                     'time':'Myr',
+                     'mass':'M$_\odot$'
+                     'temp':'K'
+                     }
 unit_length     =   1/3.086e16                  # m -> pc
 unit_time       =   1/(60*60*24*365.25*1e6)     # s -> Myr
 unit_mass       =   1/1.9891e30                # kg -> solar mass
@@ -93,4 +98,4 @@ MD              =   unit_conversion()
 """ Final Dictionary of Constants """
 #-------------------------------------------------------------------------------
 
-C               =   {**const , **MD}
+C               =   {**const , **MD, **names}
