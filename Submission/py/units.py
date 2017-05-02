@@ -53,6 +53,17 @@ names           =   {'length':'pc',
                      'mass':'M$_\odot$',
                      'temp':'K'
                      }
+
+# names           =   {'length':'m',
+#                      'time':'s',
+#                      'mass':'kg',
+#                      'temp':'K'
+#                      }
+
+# unit_length     =   1
+# unit_time       =   1
+# unit_mass       =   1
+
 unit_length     =   1/3.086e16                  # m -> pc
 unit_time       =   1/(60*60*24*365.25*1e6)     # s -> Myr
 unit_mass       =   1/1.9891e30                 # kg -> solar mass
@@ -65,6 +76,9 @@ unit_pressure   =   unit_force / unit_length**2
 unit_density    =   unit_mass / unit_length**3
 
 solar_lum       =   1/3.828e26                  # W -> solar luminosity
+solar_mass      =   1/1.9891e30                 # kg -> solar mass
+Myr             =   1/(60*60*24*365.25*1e6)     # s -> Myr
+pc              =   1/3.086e16                  # m -> pc
 
 #===============================================================================
 """ Convert to model units """
@@ -101,3 +115,4 @@ MD              =   unit_conversion()
 #-------------------------------------------------------------------------------
 
 C               =   {**const , **MD, **names}
+# C               =   {**const, **SI, **names}
