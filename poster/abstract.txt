@@ -1,5 +1,7 @@
-Title of the final project
+In the Life of a Protostar
 
-author 1, author 2, author 3
+Jacob Cluff, Kelsie Crawford
 
-Text of the abstract. It should not be longer than 200 words. Describe concisely what the problem is that you want to solve, what approach/methods you used (but keep it at a high level, don't write what you called your functions etc), and what your results are. Keep it all one paragraph. The idea is that a reader should be able to understand in 2 minutes or less what you are doing, how you are doing it, and what you get. Finish with one sentence on conclusions or future work. Finally include a statement along the following lines: Code is available at <URL> [under <LICENSE>]. --- Licensing is  optional, see https://github.com/blog/1530-choosing-an-open-source-license which will send you to http://choosealicense.com/. REPLACE ALL THE TEXT IN THIS ABSTRACT WITH YOUR OWN TITLE, AUTHOR NAMES AND ABSTRACT. THEN COMMIT AND PUT "added abstract" IN THE COMMIT MESSAGE.
+In this model, we take several clouds of different mass and determine how long it will take for the cloud core to get hot enough to allow for sustainable nuclear fusion and how long it will take for the cloud to collapse. The general approach we take is to calculate the Jean's radius for each cloud, the volume (assuming spherical symmetry), and then the density. For now, we are assuming a free fall and adiabadic collapse, but we plan on including gas pressure in the future. We calculate the adiabadic constant and use the changing volume to calculate shell temperatures; for the core temperature, we use the virial theorem and the change in the potential energy of the collapsing cloud. For our 60 solar mass cloud, the core gets hot enough after .003 Myr and the free fall collapse occurs at 1.6 Myr.
+
+Code is available at <https://github.com/ASU-CompMethodsPhysics-PHY494/final-2017-beta-team>
