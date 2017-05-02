@@ -38,9 +38,13 @@ p           =   {'figsize':(20,15),
                  'polar':(15,15),
                  'fs':20,
                  'style':'-r',
-                 'lw':2,
-                 'N_grid':100
-                 }
+                 'lw':2}
+
+m            =   {'N_grid':1001,
+                  'writer':'ffmpeg',
+                  'interval':10,
+                  'dpi':400,
+                  'cmap':cm.hot}
 
 #===============================================================================
 """ Main Problem """
@@ -98,8 +102,10 @@ def plot_protostars(saveA=True):
     else:
         plt.show()
 
-def single_cloud_movie(i, degree=5,interval=10,writer='ffmpeg',dpi=400,saveA=True):
-    """ acknowledgements: http://matplotlib.org/examples/images_contours_and_fields/pcolormesh_levels.html """
+def single_cloud_movie(i, degree=5,saveA=True):
+    """ acknowledgements:
+    http://matplotlib.org/examples/images_contours_and_fields/pcolormesh_levels.html
+    https://matplotlib.org/users/colormapnorms.html"""
     try:
         print("\nloading 'cloud_%s'..." % M_clouds[i])
         data    =   pd.read_pickle('../data/cloud_%s' % M_clouds[i])
@@ -107,61 +113,125 @@ def single_cloud_movie(i, degree=5,interval=10,writer='ffmpeg',dpi=400,saveA=Tru
         print("\ndid not find 'cloud_%s'. Calculating..." % M_clouds[i])
         data    =   integrate(M_clouds[i],R_star[i])
 
+    # def nearest(Array,value): # finds the index of the nearest element in an array to a given value
+    #     index   =   (np.abs(Array-value)).argmin()
+    #     value   =   Array[index]
+    #     # dic     =   {'i':index, 'val':value}
+    #     return index
+    #
+    # def XYZ(R,PHI,i_time,X,Y):
+    #     N_x     =   len(X)
+    #     N_y     =   len(Y)
+    #     Z       =   np.zeros(( N_x , N_y ))
+    #     for i_x in range(N_x):
+    #         for i_y in range(N_y):
+    #             r           =   np.sqrt(X[i_x]**2 + Y[i_y]**2)
+    #             i_r         =   nearest(R[i_time],r)
+    #             phi         =   PHI[i_time,i_r]
+    #             Z[i_x,i_y]  =   phi
+    #     return Z
+
+    # take useful information from cloud data
+    N_time      =   data['N_time']
+    N_shell     =   data['N_shell']
+    temp_shells =   data['T']
+    temp_core   =   data['T_core']
+    R_shells    =   data['R']
     TIME        =   data['TIME']
 
-    # Find maximum luminosity of a dA
-    PHI     =   data['F']
-    dx0     =   data['r_max'] / p['N_grid']
-    dA0     =   dx0**2
-    Lmin    =   np.min(PHI) * dA
-    Lmax    =   np.max(PHI) * dA
-    print(Lmin,Lmax)
+    # create total cloud Temperature array
+    T           =   np.zeros(( N_time , N_shell + 1 ))
+    T[:,0]      =   temp_core
+    T[:,1:]     =   temp_shells
 
-    # Zlimits     =
-    fig         =   plt.figure(figsize=p['polar'])
-    levels      =   MaxNLocator(nbins=50).tick_values( Z.min() , Z.max() )
-    # make normalized colorbar
+    # create total cloud radius array assume core is at r = 0
+    R           =   np.zeros_like(T)
+    R[:,1:]     =   R_shells
+
+    # create flux density in solar luminosity/pc^2
+    SI          =   units.SI
+    PHI         =   SI['sigma'] * T**4 * ( units.solar_lum / units.unit_length**2 )
+    Pmin,Pmax   =   np.min(PHI), np.max(PHI)
+    Plimits     =   Pmin,Pmax
+    print("phi shape", PHI.shape)
+
+    # radial flux density profile
+    fit         =   np.polyfit(R[0],T[0],degree)
+    fdp         =   np.poly1d(fit)
+
+    # set up initial figures  coordinates
+    rmax0       =   data['r_max']
+    dx0 = dy0   =   rmax0 / m['N_grid']
+    X0,Y0       =   np.mgrid[slice(-rmax0, rmax0+dx0, dx0), slice(-rmax0, rmax0+dy0, dy0)]
+    Z0          =   fdp( np.sqrt(X0**2 + Y0**2) )
+    Z0          =   Z0[:-1,:-1]
+
+    # initialize figure and make colorbar
+    fig         =   plt.figure(figsize=p['figsize'])
+    ax0         =   plt.subplot(111)
+    levels      =   MaxNLocator(nbins=100).tick_values(Pmin, Pmax)
+    cmap        =   m['cmap']
+    norm        =   BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+
+    ax0.set_title("%s M$_\odot$ Cloud: R = %.2f pc , t = %s Myr" % (M_clouds[i],rmax0,TIME[0]), fontsize=p['fs']+2)
+    ax0.set_xlabel("x [%s]" % C['length'], fontsize=p['fs'])
+    ax0.set_ylabel("y [%s]" % C['length'], fontsize=p['fs'])
+    ax0.set_xlim(-rmax0,rmax0)
+    ax0.set_ylim(-rmax0,rmax0)
+    ax0.set_aspect(1)
+    # plot initial flux density
+    im0         =   ax0.contourf(X0[:-1,:-1] + dx0/2.,Y0[:-1,:-1] + dy0/2., Z0, levels=levels, cmap=cmap)
+    cbar        =   fig.colorbar(im0, ax=ax0, pad=0)
+    cbar.set_label("L$_\odot$ / pc$^2$", fontsize=p['fs']+2)
 
     def animator(i_time):
-        # make polar axis
-        ax          =   plt.subplot(111)
-        ax.set_title("%s M$_\odot$ Cloud: t = %s" % (M_clouds[i],TIME[i_time]), fontsize=p['fs']+2 )
-        ax.set_xlabel("X [%s]" % C['length'], fontsize=p['fs'])
-        ax.set_ylabel("Y [%s]" % C['length'], fontsize=p['fs'])
+        # radial flux density profile
+        fit         =   np.polyfit(R[i_time],T[i_time],degree)
+        fdp         =   np.poly1d(fit)
 
-        rmax        =   data['R'][i_time,-1]
-        # radial temperature profile
-        R_data      =   np.hstack(( 0 , data['R'][i_time] ))
-        T_data      =   np.hstack(( data['T_core'][i_time] , data['T'][i_time] ))
-        fit         =   np.polyfit(R_data,T_data,degree)
-        tp          =   np.poly1d(fit)
+        # set up figures  coordinates
+        rmax        =   R[i_time,-1]
+        dx = dy     =   rmax0 / m['N_grid']
+        X,Y         =   np.mgrid[slice(-rmax, rmax+dx, dx), slice(-rmax, rmax+dy, dy)]
+        Z           =   fdp( np.sqrt(X**2 + Y**2) )
+        Z           =   Z[:-1,:-1]
 
-        # XY
-        dx = dy     =   rmax / p['N_grid']
-        dA          =   dx*dy
-        X,Y         =   np.mgrid[slice(-rmax, rmax+dx, dx),
-                                 slice(-rmax, rmax+dy, dy)]
+        # initialize figure and make colorbar
+        ax1         =   plt.subplot(111)
 
-        # luminosity grid: L(x,y) = sigma * T(x,y)**4 * dA
-        Z           =   C['sigma'] * tp(np.sqrt(X**2 + Y**2))**4 * dA
-        Z           =   Z[:-1, :-1]
-        # levels      =   MaxNLocator(nbins=50).tick_values( Z.min() , Z.max() )
-        # levels      =   MaxNLocator(nbins=50).tick_values( Lmin , Lmax )
+        ax.set_title("%s M$_\odot$ Cloud: R = %.2f pc , t = %s Myr" % (M_clouds[i],rmax0,TIME[i_time]), fontsize=p['fs']+2)
+        ax.set_xlabel("x [%s]" % C['length'], fontsize=p['fs'])
+        ax.set_ylabel("y [%s]" % C['length'], fontsize=p['fs'])
+        ax.set_xlim(-rmax,rmax)
+        ax.set_ylim(-rmax,rmax)
+        ax.set_aspect(1)
+        # plot initial flux density
+        im          =   ax.contourf(X[:-1,:-1] + dx/2.,Y[:-1,:-1] + dy/2., Z, levels=levels, cmap=cmap)
 
-        cmap        =   plt.get_cmap('hot')
-        norm        =   BoundaryNorm(levels, ncolors=cmap.N, clip=True)
 
-        cf          =   ax.contourf(X[:-1,:-1] + dx/2.,
-                                    Y[:-1,:-1] + dy/2.,
-                                    Z, levels=levels, cmap=cmap)
-        return ax
 
-    movie_anim      =   animation.FuncAnimation(fig, animator, frames=len(TIME), blit=False, interval=interval)
+    #     return ax
+    #
+    # movie_anim      =   animation.FuncAnimation(fig, animator, frames=N_time, blit=False, interval=interval)
 
-    if saveA:
-        movie_anim.save('../figures/movie_%s.mp4' % M_clouds[i], writer=writer, dpi=dpi)
-    else:
-        plt.show()
+    # if saveA:
+    #     movie_anim.save('../figures/movie_%s.mp4' % M_clouds[i], writer=writer, dpi=dpi)
+    # else:
+    #     plt.show()
+
+    # # Find maximum luminosity of a dA
+    # PHI     =   data['F']
+    # dx0     =   data['r_max'] / p['N_grid']
+    # dA0     =   dx0**2
+    # Lmin    =   np.min(PHI) * dA
+    # Lmax    =   np.max(PHI) * dA
+    # print(Lmin,Lmax)
+
+    # # radial temperature profile
+    # R_data      =   np.hstack(( 0 , data['R'][i_time] ))
+    # T_data      =   np.hstack(( data['T_core'][i_time] , data['T'][i_time] ))
+    # fit         =   np.polyfit(R_data,T_data,degree)
+    # tp          =   np.poly1d(fit)
 
 def write_protostar_movies(saveA=True):
     N_clouds    =   len(M_clouds)

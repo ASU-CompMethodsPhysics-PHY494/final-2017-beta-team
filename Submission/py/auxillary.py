@@ -239,7 +239,9 @@ def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
     d['t_ff']           =   t_ff
     d['t_max']          =   t_max
     d['dt']             =   dt
-    d['t_collapse']     =   dt * i_time
+    d['t_collapse']     =   dt * i_terminate
+    d['N_shell']        =   N_shell
+    d['N_time']         =   i_terminate
 
     # arrays                array       # ( dimention )
     d['R']              =   R           # ( N_time , N_shell )
