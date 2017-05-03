@@ -90,7 +90,7 @@ def rk4(M_r,m_i,m_j,r_iprev,r_jprev,T_iprev,dt):
     k4  =   dt * acc_total(M_r,m_i,m_j,r_iprev,r_jprev + k3,T_iprev)
     return r_jprev + (1/3)*(k1/2 + k2 + k3 + k4/2)
 
-def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
+def integrate(M_cloud,r_star, N_time=10000,N_shell=10000,tol=1e-5,saveA=True):
 
     """ Jean's radius of cloud and
     radius increment: pc """
@@ -104,7 +104,7 @@ def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
 
     """ calculate free fall time: Myr """
     t_ff        =   time_FreeFall(density_0)
-    t_max       =   t_ff * .7
+    t_max       =   t_ff
     dt          =   t_max/N_time
     TIME        =   np.arange(0,t_max+dt,dt)
 
@@ -164,7 +164,10 @@ def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
     T_core[0]   =   T_core0
 
     # integration
+
     for i_time in np.arange(1,N_time):
+
+
 
         # collapsing termination condition
         i_terminate             =   'did not terminate'

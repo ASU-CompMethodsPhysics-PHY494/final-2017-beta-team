@@ -157,6 +157,7 @@ def single_cloud_movie(i, degree=5,saveA=True):
     fig         =   plt.figure(figsize=p['figsize'])
     ax          =   plt.subplot(111)
     levels      =   MaxNLocator(nbins=100).tick_values(Z0.min(), Z0.max())
+    print(Z0.min(),Z0.max())
     # levels      =   MaxNLocator(nbins=100).tick_values(Pmin, Pmax)
     cmap        =   m['cmap']
     norm        =   BoundaryNorm(levels, ncolors=cmap.N, clip=True)
@@ -199,7 +200,7 @@ def single_cloud_movie(i, degree=5,saveA=True):
         # plot initial flux density
         im          =   ax.contourf(X[:-1,:-1] + dx/2.,Y[:-1,:-1] + dy/2., Z, levels=levels, cmap=cmap)
 
-    movie_anim      =   animation.FuncAnimation(fig, animator, frames=100, blit=False, interval=m['interval'])
+    movie_anim      =   animation.FuncAnimation(fig, animator, frames=10, blit=False, interval=m['interval'])
     # movie_anim      =   animation.FuncAnimation(fig, animator, frames=int(N_time), blit=False, interval=m['interval'])
 
     if saveA:
