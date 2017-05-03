@@ -48,7 +48,7 @@ p           =   {'figsize':(20,15),
 
 m            =   {'N_grid':1000,
                   'writer':'ffmpeg',
-                  'interval':int(10),
+                  'interval':int(100),
                   'dpi':int(400),
                   'cmap':cm.hot}
 
@@ -141,11 +141,13 @@ def single_cloud_movie(i, degree=5,saveA=True):
     print("phi shape", PHI.shape)
 
     # radial flux density profile
-    fit         =   np.polyfit(R[0],T[0],degree)
+    fit         =   np.polyfit(R[99],T[99],degree)
+    # fit         =   np.polyfit(R[0],T[0],degree)
     fdp         =   np.poly1d(fit)
 
     # set up initial figures  coordinates
-    rmax0       =   data['r_max']
+    rmax0       =   R[99,-1]
+    # rmax0       =   data['r_max']
     dx0 = dy0   =   rmax0 / m['N_grid']
     X0,Y0       =   np.mgrid[slice(-rmax0, rmax0+dx0, dx0), slice(-rmax0, rmax0+dy0, dy0)]
     Z0          =   fdp( np.sqrt(X0**2 + Y0**2) )
@@ -154,8 +156,8 @@ def single_cloud_movie(i, degree=5,saveA=True):
     # initialize figure and make colorbar
     fig         =   plt.figure(figsize=p['figsize'])
     ax          =   plt.subplot(111)
-    # levels      =   MaxNLocator(nbins=100).tick_values(Z0.min(), Z0.max())
-    levels      =   MaxNLocator(nbins=100).tick_values(Pmin, Pmax)
+    levels      =   MaxNLocator(nbins=100).tick_values(Z0.min(), Z0.max())
+    # levels      =   MaxNLocator(nbins=100).tick_values(Pmin, Pmax)
     cmap        =   m['cmap']
     norm        =   BoundaryNorm(levels, ncolors=cmap.N, clip=True)
 
@@ -182,6 +184,10 @@ def single_cloud_movie(i, degree=5,saveA=True):
         Z           =   fdp( np.sqrt(X**2 + Y**2) )
         Z           =   Z[:-1,:-1]
 
+        # levels      =   MaxNLocator(nbins=100).tick_values(Z.min(), Z.max())
+        # cmap        =   m['cmap']
+        # norm        =   BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+
         # initialize figure and make colorbar
         ax.clear()
         ax.set_title("%s M$_\odot$ Cloud: R = %.4f pc , t = %.4f Myr" % (M_clouds[i],rmax0,TIME[i_time]), fontsize=p['fs']+2)
@@ -193,7 +199,8 @@ def single_cloud_movie(i, degree=5,saveA=True):
         # plot initial flux density
         im          =   ax.contourf(X[:-1,:-1] + dx/2.,Y[:-1,:-1] + dy/2., Z, levels=levels, cmap=cmap)
 
-    movie_anim      =   animation.FuncAnimation(fig, animator, frames=int(N_time), blit=False, interval=m['interval'])
+    movie_anim      =   animation.FuncAnimation(fig, animator, frames=100, blit=False, interval=m['interval'])
+    # movie_anim      =   animation.FuncAnimation(fig, animator, frames=int(N_time), blit=False, interval=m['interval'])
 
     if saveA:
         movie_anim.save('../figures/movie_%s.mp4' % M_clouds[i], writer=m['writer'], dpi=m['dpi'])

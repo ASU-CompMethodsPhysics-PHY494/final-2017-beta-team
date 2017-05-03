@@ -45,8 +45,9 @@ def cloud_potential_energy(M_cloud,R_cloud):
 
 def core_temperature(E):
     E   =   E / units.unit_energy
-    return (2/3) * E * SI['mu'] / SI['k']
+    # return (2/3) * E * SI['mu'] / SI['k']
     # return (2 * E * C['mu']) / (3 * C['k'] * M_cloud)
+    return (2/3) * E * C['mu'] / C['k']
 
 def terminator(A,i_terminate,axis=None):
     if axis == None:
@@ -61,49 +62,33 @@ def terminator(A,i_terminate,axis=None):
 """ Acceleration Functions """
 #-------------------------------------------------------------------------------
 
-# def acc_pressure_gas(data,t,j, units=MD):
-#     """gas pressure on shell from interior shell"""
-#     if j == 0:
-#         acc_gas     =   0
-#     else:
-#         # mass of inner shell
-#         m_i     =   data['mass'][j-1]
-#         # temperature of inner shell
-#         T_ti    =   data['temp'][t,j-1]
-#         # volume of inner shell
-#         V_ti    =   data['volume'][t,j-1]
-#         # gas pressure exerted on shell
-#         P       =   gas_pressure(m_i,T_ti,V_ti)
-#
-#         # surface area of shell
-#         A_tj    =   data['area'][t,j]
-#         # mass of shell
-#         m_j     =   data['mass'][j]
-#
-#         acc_gas                 =   A_tj * P / m_j
-#
-#     data['acc_gas'][t,j]    =   acc_gas
-#     return data
+def acc_pressure_gas(r_i,r_j,m_i,m_j,T_i):
+    area        =   4 * np.pi * r_i**2
+    volume      =   (4/3) * np.pi * r_j**3
+    pressure    =   (m_j/C['mu']) * C['k'] * T_i / volume
+    return (area/m_j) * pressure
 
 def acc_gravity(M_r,r):
     return - C['G'] * M_r / r**2
 
-def acc_total(M_r,r):
-    # a_gas   =   NotImplemented
+def acc_total(M_r,m_i,m_j,r_i,r_j,T_i):
+    # a_gas   =   acc_pressure_gas(r_i,r_j,m_i,m_j,T_i)
     # a_rad   =   NotImplemented
-    a_grav  =   acc_gravity(M_r,r)
+    a_grav  =   acc_gravity(M_r,r_j)
+    # return a_grav + a_gas
     return a_grav
 
 #===============================================================================
 """ Integration Functions """
 #-------------------------------------------------------------------------------
 
-def rk4(M_r,r,dt):
-    k1  =   dt * acc_total(M_r,r)
-    k2  =   dt * acc_total(M_r,r + k1/2)
-    k3  =   dt * acc_total(M_r,r + k2/2)
-    k4  =   dt * acc_total(M_r,r + k3)
-    return r + (1/3)*(k1/2 + k2 + k3 + k4/2)
+def rk4(M_r,m_i,m_j,r_iprev,r_jprev,T_iprev,dt):
+    # M_r,m_i,m_j,r_i,r_j,T_i
+    k1  =   dt * acc_total(M_r,m_i,m_j,r_iprev,r_jprev,T_iprev)
+    k2  =   dt * acc_total(M_r,m_i,m_j,r_iprev,r_jprev + k1/2,T_iprev)
+    k3  =   dt * acc_total(M_r,m_i,m_j,r_iprev,r_jprev + k2/2,T_iprev)
+    k4  =   dt * acc_total(M_r,m_i,m_j,r_iprev,r_jprev + k3,T_iprev)
+    return r_jprev + (1/3)*(k1/2 + k2 + k3 + k4/2)
 
 def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
 
@@ -213,12 +198,20 @@ def integrate(M_cloud,r_star, N_time=1000,N_shell=1000,tol=1e-5,saveA=True):
             # T_core              =   terminator(T_core,i_terminate)
             # TIME                =   terminator(TIME,i_terminate)
             print("\nstar turned on at %s Myr" % (i_time*dt) )
+            # decided not to terminate to allow continued collapse
 
         for i_shell in range(N_shell):
 
-            # update shell values
-            r_prev                  =   R[i_time-1,i_shell]         # old shell outer radius
-            r_new                   =   rk4(Mr[i_shell],r_prev,dt)  # update shell outer radius
+            # update shell outer radius with rk4
+            Mr_j                    =   Mr[i_shell]                 # shell internal mass
+            m_i                     =   M[i_shell-1]                # inside shell mass
+            m_j                     =   M[i_shell]                  # shell mass
+            r_iprev                 =   R[i_time-1,i_shell-1]       # previous inside shell outer radius
+            r_jprev                 =   R[i_time-1,i_shell]         # previous shell outer radius
+            T_iprev                 =   T[i_time-1,i_shell-1]       # previous inside shell temperature
+            # M_r,m_i,m_j,r_i,r_j,T_i
+            r_new                   =   rk4(Mr_j,m_i,m_j,r_iprev,r_jprev,T_iprev,dt)  # update shell outer radius
+            # r_new                   =   rk4(Mr[i_shell],r_prev,dt)  # update shell outer radius
             if i_shell == 0:
                 r_i                 =   r_star                      # updated shell inner radius
             else:
