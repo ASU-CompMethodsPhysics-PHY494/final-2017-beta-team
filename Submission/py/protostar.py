@@ -82,30 +82,34 @@ def plot_protostars(N_time=1000,saveA=True):
         X       =   data['TIME']
         Y       =   np.log(data['T'])
 
-        ax      =   plt.subplot(4,3,i+1)
+        fig = plt.figure(figsize=p['figsize'])
+        # ax      =   plt.subplot(4,3,i+1)
+        ax      =   plt.subplot(111)
         ax.set_title("%s M$_\odot$ Cloud" % M_clouds[i], fontsize=p['fs']+2)
         ax.set_xlabel("Time [ %s ]" % C['time'], fontsize=p['fs'])
         ax.set_ylabel("ln ( Temp [ %s ] )" % C['temp'], fontsize=p['fs'])
         ax.set_xlim([min(X),max(X)])
-        # pdb.set_trace()
         ax.plot(X,Y,p['style'], lw=p['lw'])
-        return ax
+        if saveA:
+            fig.savefig('../figures/temp_vs_time_%s.png' % M_clouds[i])
+            plt.close('all')
+        # return ax
 
     print("\nstarting plotting sequence...")
-    fig = plt.figure(figsize=p['figsize'])
+    # fig = plt.figure(figsize=p['figsize'])
     for i in range(N_clouds):
         plot_axis(i)
-    plt.tight_layout()
+    # plt.tight_layout()
 
     # save and return
-    if saveA:
-        print("\nsaving 'temp_vs_time' in 'figures' folder.")
-        fig.savefig('../figures/temp_vs_time.png')
-        plt.close()
-    else:
-        plt.show()
+    # if saveA:
+    #     print("\nsaving 'temp_vs_time' in 'figures' folder.")
+    #     fig.savefig('../figures/temp_vs_time.png')
+    #     plt.close()
+    # else:
+    #     plt.show()
 
-def single_cloud_movie(i, N_time=1000,degree=5,saveA=True):
+def single_cloud_movie(i, N_time=1000,degree=2,saveA=True):
     """ acknowledgements:
     http://matplotlib.org/examples/images_contours_and_fields/pcolormesh_levels.html
     https://matplotlib.org/users/colormapnorms.html"""
@@ -116,86 +120,24 @@ def single_cloud_movie(i, N_time=1000,degree=5,saveA=True):
         print("\ndid not find 'cloud_%s'. Calculating..." % M_clouds[i])
         data    =   integrate(M_clouds[i], N_time=N_time)
 
+    def z_color(r_cloud,x,y,t):
+        r       =   np.sqrt(x**2 + y**2)
+        if r <= r_cloud:
+            return t
+        else:
+            return 0
+
     # take useful information from cloud data
-    N_time      =   data['N_time']
-    temp_shells =   data['T']
-    R_shells    =   data['R']
+    T           =   data['T']
+    R           =   data['R']
     TIME        =   data['TIME']
-
-    # create total cloud Temperature array
-    T           =   np.zeros(( N_time , N_shell + 1 ))
-    T[:,0]      =   temp_core
-    T[:,1:]     =   temp_shells
-
-    # create total cloud radius array assume core is at r = 0
-    R           =   np.zeros_like(T)
-    R[:,1:]     =   R_shells
+    # pdb.set_trace()
 
     # create flux density in solar luminosity/pc^2
     PHI         =   SI['sigma'] * T**4 * ( units.solar_lum / units.unit_length**2 )
-    Pmin,Pmax   =   np.min(PHI), np.max(PHI)
-    Plimits     =   Pmin,Pmax
-    print("phi shape", PHI.shape)
+    Plimits     =   np.min(PHI), np.max(PHI)
 
-    # radial flux density profile
-    fit         =   np.polyfit(R[99],T[99],degree)
-    # fit         =   np.polyfit(R[0],T[0],degree)
-    fdp         =   np.poly1d(fit)
 
-    # set up initial figures  coordinates
-    rmax0       =   R[99,-1]
-    # rmax0       =   data['r_max']
-    dx0 = dy0   =   rmax0 / m['N_grid']
-    X0,Y0       =   np.mgrid[slice(-rmax0, rmax0+dx0, dx0), slice(-rmax0, rmax0+dy0, dy0)]
-    Z0          =   fdp( np.sqrt(X0**2 + Y0**2) )
-    Z0          =   Z0[:-1,:-1]
-
-    # initialize figure and make colorbar
-    fig         =   plt.figure(figsize=p['figsize'])
-    ax          =   plt.subplot(111)
-    levels      =   MaxNLocator(nbins=100).tick_values(Z0.min(), Z0.max())
-    print(Z0.min(),Z0.max())
-    # levels      =   MaxNLocator(nbins=100).tick_values(Pmin, Pmax)
-    cmap        =   m['cmap']
-    norm        =   BoundaryNorm(levels, ncolors=cmap.N, clip=True)
-
-    ax.set_title("%s M$_\odot$ Cloud: R = %.2f pc , t = %s Myr" % (M_clouds[i],rmax0,TIME[0]), fontsize=p['fs']+2)
-    ax.set_xlabel("x [%s]" % C['length'], fontsize=p['fs'])
-    ax.set_ylabel("y [%s]" % C['length'], fontsize=p['fs'])
-    ax.set_xlim(-rmax0,rmax0)
-    ax.set_ylim(-rmax0,rmax0)
-    ax.set_aspect(1)
-    # plot initial flux density
-    im0         =   ax.contourf(X0[:-1,:-1] + dx0/2.,Y0[:-1,:-1] + dy0/2., Z0, levels=levels, cmap=cmap)
-    cbar        =   fig.colorbar(im0, ax=ax, pad=0)
-    cbar.set_label("L$_\odot$ / pc$^2$", fontsize=p['fs']+2)
-
-    def animator(i_time):
-        # radial flux density profile
-        fit         =   np.polyfit(R[i_time],T[i_time],degree)
-        fdp         =   np.poly1d(fit)
-
-        # set up figures  coordinates
-        rmax        =   R[i_time,-1]
-        dx = dy     =   rmax0 / m['N_grid']
-        X,Y         =   np.mgrid[slice(-rmax, rmax+dx, dx), slice(-rmax, rmax+dy, dy)]
-        Z           =   fdp( np.sqrt(X**2 + Y**2) )
-        Z           =   Z[:-1,:-1]
-
-        # levels      =   MaxNLocator(nbins=100).tick_values(Z.min(), Z.max())
-        # cmap        =   m['cmap']
-        # norm        =   BoundaryNorm(levels, ncolors=cmap.N, clip=True)
-
-        # initialize figure and make colorbar
-        ax.clear()
-        ax.set_title("%s M$_\odot$ Cloud: R = %.4f pc , t = %.4f Myr" % (M_clouds[i],rmax0,TIME[i_time]), fontsize=p['fs']+2)
-        ax.set_xlabel("x [%s]" % C['length'], fontsize=p['fs'])
-        ax.set_ylabel("y [%s]" % C['length'], fontsize=p['fs'])
-        ax.set_xlim(-rmax,rmax)
-        ax.set_ylim(-rmax,rmax)
-        ax.set_aspect(1)
-        # plot initial flux density
-        im          =   ax.contourf(X[:-1,:-1] + dx/2.,Y[:-1,:-1] + dy/2., Z, levels=levels, cmap=cmap)
 
     movie_anim      =   animation.FuncAnimation(fig, animator, frames=10, blit=False, interval=m['interval'])
     # movie_anim      =   animation.FuncAnimation(fig, animator, frames=int(N_time), blit=False, interval=m['interval'])
@@ -213,11 +155,26 @@ def write_protostar_movies(saveA=True):
 
 
 def printClouds():
+    print("\ninitial temp = %s K, critical temp = %s K" % (C['T'],C['T_c']))
     for i in range(N_clouds):
-         data = pd.read_pickle('../data/cloud_%s' % M_clouds[i])
-         print("\n M_cloud = %s" % data['M_cloud'])
-         print("density0 = %s" % data['density_0'])
-         print("R_j = %s" % data['r_max'])
-         print("t_ff = %s" % data['t_ff'])
-         print("t_collapse = %s" % data['t_collapse'])
-         print("t_on = %s" % data['t_on'])
+         d = pd.read_pickle('../data/cloud_%s' % M_clouds[i])
+         print("\nCloud         %s\n\
+         theory R_star:         %s\n\
+         Jean radius:           %s\n\
+         initial volume:        %s\n\
+         adiabadic constant:    %s\n\
+         initial density:       %s\n\
+         free fall time:        %s\n\
+         ending radius:         %s\n\
+         ending temperature:    %s\n\
+         ending time:           %s\n"\
+         % (d['M'],\
+         d['R_star'],\
+         d['R_j'],\
+         d['V0'],\
+         d['vt'],\
+         d['rho0'],\
+         d['tff'],\
+         d['R'][-1],\
+         d['T'][-1],\
+         d['TIME'][-1]) )
