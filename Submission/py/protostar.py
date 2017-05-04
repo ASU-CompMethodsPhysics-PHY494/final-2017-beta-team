@@ -131,7 +131,6 @@ def single_cloud_movie(i, N_time=1000,degree=2,saveA=True):
     T           =   data['T']
     R           =   data['R']
     TIME        =   data['TIME']
-    # pdb.set_trace()
 
     # create flux density in solar luminosity/pc^2
     PHI         =   SI['sigma'] * T**4 * ( units.solar_lum / units.unit_length**2 )
@@ -139,8 +138,8 @@ def single_cloud_movie(i, N_time=1000,degree=2,saveA=True):
 
 
 
-    movie_anim      =   animation.FuncAnimation(fig, animator, frames=10, blit=False, interval=m['interval'])
-    # movie_anim      =   animation.FuncAnimation(fig, animator, frames=int(N_time), blit=False, interval=m['interval'])
+    # movie_anim      =   animation.FuncAnimation(fig, animator, frames=10, blit=False, interval=m['interval'])
+    movie_anim      =   animation.FuncAnimation(fig, animator, frames=int(N_time), blit=False, interval=m['interval'])
 
     if saveA:
         movie_anim.save('../figures/movie_%s.mp4' % M_clouds[i], writer=m['writer'], dpi=m['dpi'])
