@@ -35,9 +35,9 @@ R_star      =   R_star * C['r_sun']
 
 N_clouds    =   len(M_clouds)
 
-M_clouds    =   M_clouds[::-1]
-T_bench     =   T_bench[::-1]
-R_star      =   R_star[::-1]
+# M_clouds    =   M_clouds[::-1]
+# T_bench     =   T_bench[::-1]
+# R_star      =   R_star[::-1]
 
 # plotting parameters
 p           =   {'figsize':(20,15),
@@ -48,7 +48,7 @@ p           =   {'figsize':(20,15),
 
 m            =   {'N_grid':1000,
                   'writer':'ffmpeg',
-                  'interval':int(100),
+                  'interval':int(200),
                   'dpi':int(400),
                   'cmap':cm.hot}
 
@@ -77,7 +77,7 @@ def plot_protostars(N_time=1000,saveA=True):
             data    =   pd.read_pickle('../data/cloud_%s' % M_clouds[i])
         except:
             print("\ndid not find 'cloud_%s'. Calculating..." % M_clouds[i])
-            data    =   integrate(M_clouds[i],R_star[i], N_time=N_time)
+            data    =   single_cloud_collapse(i, N_time=N_time)
 
         X       =   data['TIME']
         Y       =   np.log(data['T'])
@@ -109,42 +109,109 @@ def plot_protostars(N_time=1000,saveA=True):
     # else:
     #     plt.show()
 
-def single_cloud_movie(i, N_time=1000,degree=2,saveA=True):
+def single_cloud_movie(i, N_x=1000,N_time=1000,saveA=True):
     """ acknowledgements:
     http://matplotlib.org/examples/images_contours_and_fields/pcolormesh_levels.html
     https://matplotlib.org/users/colormapnorms.html"""
+
+    print("\nstarting movie sequence for %s..." % M_clouds[i])
     try:
         print("\nloading 'cloud_%s'..." % M_clouds[i])
         data    =   pd.read_pickle('../data/cloud_%s' % M_clouds[i])
     except:
         print("\ndid not find 'cloud_%s'. Calculating..." % M_clouds[i])
-        data    =   integrate(M_clouds[i], N_time=N_time)
-
-    def z_color(r_cloud,x,y,t):
-        r       =   np.sqrt(x**2 + y**2)
-        if r <= r_cloud:
-            return t
-        else:
-            return 0
+        data    =   single_cloud_collapse(i, N_time=N_time)
 
     # take useful information from cloud data
     T           =   data['T']
     R           =   data['R']
     TIME        =   data['TIME']
+    M           =   data['M']
+
+    i_test      =   -1
+    TIME        =   TIME[i_test]
+    R           =   R[i_test]
+    T           =   T[i_test]
 
     # create flux density in solar luminosity/pc^2
-    PHI         =   SI['sigma'] * T**4 * ( units.solar_lum / units.unit_length**2 )
-    Plimits     =   np.min(PHI), np.max(PHI)
+    # PHI         =   SI['sigma'] * T**4 * ( units.solar_lum / units.unit_length**2 )
+    PHI         =   (C['sigma'] * T**4 / units.unit_power) * units.solar_lum     # flux density [solar luminosity / pc^2]
+
+    # write luminosity array
+    print("\nwriting luminosity array...")
+    # L           =   np.zeros(( len(T) , N_x , N_x ))
+    L           =   np.zeros(( N_x , N_x ))
+
+    # for i_time,time in enumerate(T):
+    rcloud      =   R
+    phi         =   PHI
+    X           =   np.linspace( -rcloud , rcloud , N_x )
+    Y           =   np.linspace( -rcloud , rcloud , N_x )
+    X,Y         =   np.meshgrid( X , Y )
+    L[:,:]      =   aux.MakeColorMap(X,Y,rcloud,phi)
+    # print("done")
+    # L           =   L[0]
+    limits      =   np.min(L),np.max(L)
+    print(limits)
+
+    # set up movie figure
+    plt.close('all')
+    fig         =   plt.figure(figsize=p['figsize'])
+    ax          =   plt.subplot(111)
+    ax.set_title('%s M$_\odot$: radius = %.3f %s , temp = %.0f %s , time = %.3f %s'\
+    % ( M , rcloud*1e5 , ' x 10$^{-5}$ pc' , T , C['temp'] , TIME , C['time'] ),\
+    fontsize=p['fs']+2)
+    ax.set_xlabel('x [ %s ]' % '10$^{-6}$ pc', fontsize=p['fs'])
+    ax.set_ylabel('y [ %s ]' % '10$^{-6}$ pc', fontsize=p['fs'])
+
+    levels      =   MaxNLocator(nbins=100).tick_values(*limits)
+    cmap        =   m['cmap']
+    norm        =   BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+
+    rcloud      =   R*1e6
+    X           =   np.linspace( -rcloud , rcloud , N_x )
+    Y           =   np.linspace( -rcloud , rcloud , N_x )
+    # Z           =   L[0]
+    Z           =   L
 
 
+    xlim        =   -rcloud,rcloud
+    ax.set_xlim([*xlim])
+    ax.set_ylim([*xlim])
+    ax.set_aspect(1)
+    im          =   ax.contourf(X,Y,Z, levels=levels, cmap=cmap)
+    cbar        =   fig.colorbar(im, ax=ax, pad=0)
+    cbar.set_label('L$_\odot$', fontsize=p['fs'])
+    if saveA:   fig.savefig('../figures/still_image_%s.png' % M)
 
-    # movie_anim      =   animation.FuncAnimation(fig, animator, frames=10, blit=False, interval=m['interval'])
-    movie_anim      =   animation.FuncAnimation(fig, animator, frames=int(N_time), blit=False, interval=m['interval'])
+    def animate_cloud(t):
+        ax.clear()
 
-    if saveA:
-        movie_anim.save('../figures/movie_%s.mp4' % M_clouds[i], writer=m['writer'], dpi=m['dpi'])
-    else:
-        plt.show()
+        rcloud  =   R[t]
+        X       =   np.linspace( -rcloud , rcloud , N_x )
+        Y       =   np.linspace( -rcloud , rcloud , N_x )
+        Z       =   L[t]
+
+        ax.set_title('%s M$_\odot$: radius = %.3f %s , temp = %.3f %s , time = %.3f %s'\
+        % ( M , rcloud , C['length'] , T[t] , C['temp'] , TIME[t] , C['time'] ),\
+        fontsize=p['fs']+2)
+        ax.set_xlabel('x [ %s ]' % C['length'], fontsize=p['fs'])
+        ax.set_ylabel('y [ %s ]' % C['length'], fontsize=p['fs'])
+        xlim        =   -rcloud,rcloud
+        ax.set_xlim([*xlim])
+        ax.set_ylim([*xlim])
+        ax.set_aspect(1)
+        im      =   ax.contourf(X,Y,Z, levels=levels, cmap=cmap)
+
+    # # run movie
+    # print("\n writing movie...")
+    # movie_anim  =   animation.FuncAnimation(fig, animate_cloud, frames=len(TIME), blit=False, interval=m['interval'])
+    # print("done")
+    # if saveA:
+    #     # movie_anim.save('../figures/movie_%s.mp4' % M, dpi=m['dpi'])
+    #     movie_anim.save('../figures/movie_%s.mp4' % M, writer=m['writer'], dpi=m['dpi'])
+    # else:
+    #     plt.show()
 
 def write_protostar_movies(saveA=True):
     N_clouds    =   len(M_clouds)

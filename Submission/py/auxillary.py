@@ -58,6 +58,7 @@ def Heaviside(x):
 def MakeColorMap(x,y,rcloud,phi_cloud):
     r = np.sqrt(x**2 + y**2)
     a = 4 * np.pi * r**2
+    # return Heaviside(rcloud-r) * phi_cloud
     return Heaviside(rcloud-r) * phi_cloud * a
 
 #===============================================================================
