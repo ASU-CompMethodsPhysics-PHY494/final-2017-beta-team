@@ -56,17 +56,16 @@ m            =   {'N_grid':1000,
 """ Main Problem """
 #-------------------------------------------------------------------------------
 
-def single_cloud_collapse(i):
+def single_cloud_collapse(i, N_time=1000):
     print("\ncalculating and collecting 'cloud_%s'..." % M_clouds[i])
-    data    =   aux.integrate(M_clouds[i],R_star[i])
-    return data
+    return aux.integrate(M_clouds[i],R_star[i],N_time)
 
-def write_clouds():
+def write_clouds(N_time=1000):
     print("\nstarting cloud writing and compilation sequence...")
     for i in range(N_clouds):
-        single_cloud_collapse(i)
+        single_cloud_collapse(i, N_time=N_time)
 
-def plot_protostars(saveA=True):
+def plot_protostars(N_time=1000,saveA=True):
     """ plot core temperature vs time for all clouds
     M_clouds:   numpy array of cloud masses
     p:          dictionary of plotting parameters
@@ -78,15 +77,15 @@ def plot_protostars(saveA=True):
             data    =   pd.read_pickle('../data/cloud_%s' % M_clouds[i])
         except:
             print("\ndid not find 'cloud_%s'. Calculating..." % M_clouds[i])
-            data    =   integrate(M_clouds[i],R_star[i])
+            data    =   integrate(M_clouds[i],R_star[i], N_time=N_time)
 
         X       =   data['TIME']
-        Y       =   data['T_core']
+        Y       =   np.log(data['T'])
 
         ax      =   plt.subplot(4,3,i+1)
         ax.set_title("%s M$_\odot$ Cloud" % M_clouds[i], fontsize=p['fs']+2)
-        ax.set_xlabel("Time [%s]" % C['time'], fontsize=p['fs'])
-        ax.set_ylabel("Temp [%s]" % C['temp'], fontsize=p['fs'])
+        ax.set_xlabel("Time [ %s ]" % C['time'], fontsize=p['fs'])
+        ax.set_ylabel("ln ( Temp [ %s ] )" % C['temp'], fontsize=p['fs'])
         ax.set_xlim([min(X),max(X)])
         # pdb.set_trace()
         ax.plot(X,Y,p['style'], lw=p['lw'])
@@ -106,7 +105,7 @@ def plot_protostars(saveA=True):
     else:
         plt.show()
 
-def single_cloud_movie(i, degree=5,saveA=True):
+def single_cloud_movie(i, N_time=1000,degree=5,saveA=True):
     """ acknowledgements:
     http://matplotlib.org/examples/images_contours_and_fields/pcolormesh_levels.html
     https://matplotlib.org/users/colormapnorms.html"""
@@ -115,13 +114,11 @@ def single_cloud_movie(i, degree=5,saveA=True):
         data    =   pd.read_pickle('../data/cloud_%s' % M_clouds[i])
     except:
         print("\ndid not find 'cloud_%s'. Calculating..." % M_clouds[i])
-        data    =   integrate(M_clouds[i],R_star[i])
+        data    =   integrate(M_clouds[i], N_time=N_time)
 
     # take useful information from cloud data
     N_time      =   data['N_time']
-    N_shell     =   data['N_shell']
     temp_shells =   data['T']
-    temp_core   =   data['T_core']
     R_shells    =   data['R']
     TIME        =   data['TIME']
 
