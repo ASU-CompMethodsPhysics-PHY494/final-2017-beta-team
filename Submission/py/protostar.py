@@ -82,28 +82,32 @@ def plot_protostars(N_time=1000,saveA=True):
         X       =   data['TIME']
         Y       =   np.log(data['T'])
 
-        ax      =   plt.subplot(4,3,i+1)
+        fig = plt.figure(figsize=p['figsize'])
+        # ax      =   plt.subplot(4,3,i+1)
+        ax      =   plt.subplot(111)
         ax.set_title("%s M$_\odot$ Cloud" % M_clouds[i], fontsize=p['fs']+2)
         ax.set_xlabel("Time [ %s ]" % C['time'], fontsize=p['fs'])
         ax.set_ylabel("ln ( Temp [ %s ] )" % C['temp'], fontsize=p['fs'])
         ax.set_xlim([min(X),max(X)])
-        # pdb.set_trace()
         ax.plot(X,Y,p['style'], lw=p['lw'])
-        return ax
+        if saveA:
+            fig.savefig('../figures/temp_vs_time_%s.png' % M_clouds[i])
+            plt.close('all')
+        # return ax
 
     print("\nstarting plotting sequence...")
-    fig = plt.figure(figsize=p['figsize'])
+    # fig = plt.figure(figsize=p['figsize'])
     for i in range(N_clouds):
         plot_axis(i)
-    plt.tight_layout()
+    # plt.tight_layout()
 
     # save and return
-    if saveA:
-        print("\nsaving 'temp_vs_time' in 'figures' folder.")
-        fig.savefig('../figures/temp_vs_time.png')
-        plt.close()
-    else:
-        plt.show()
+    # if saveA:
+    #     print("\nsaving 'temp_vs_time' in 'figures' folder.")
+    #     fig.savefig('../figures/temp_vs_time.png')
+    #     plt.close()
+    # else:
+    #     plt.show()
 
 def single_cloud_movie(i, N_time=1000,degree=5,saveA=True):
     """ acknowledgements:
